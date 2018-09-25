@@ -1,0 +1,9 @@
+module I4application {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:I4application";
+    prefix "I4application";
+
+    revision "2015-01-05" {
+        description "Initial revision of I4application model";
+    }
+}
