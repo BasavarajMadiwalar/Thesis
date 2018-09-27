@@ -9,19 +9,29 @@ package org.opendaylight.I4application.impl;
 
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
+import org.opendaylight.controller.sal.binding.api.BindingAwareConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class I4applicationProvider {
+public class I4applicationProvider implements BindingAwareConsumer {
 
     private static final Logger LOG = LoggerFactory.getLogger(I4applicationProvider.class);
 
-    private final DataBroker dataBroker;
-    private final NotificationService notificationService;
+    private DataBroker dataBroker;
+    private NotificationService notificationService;
 
-    public I4applicationProvider(final DataBroker dataBroker, final NotificationService notificationService) {
+    public I4applicationProvider(DataBroker dataBroker) {
         this.dataBroker = dataBroker;
-        this.notificationService = notificationService;
+    }
+
+
+
+    @Override
+    public void onSessionInitialized(BindingAwareBroker.ConsumerContext session) {
+        System.out.println("Session Initiated");
+        this.notificationService = session.getSALService(NotificationService.class);
+        mDNSParserImpl mDNSParser = new mDNSParserImpl(notificationService);
     }
 
     /**
@@ -29,6 +39,7 @@ public class I4applicationProvider {
      */
     public void init() {
         LOG.info("I4applicationProvider Session Initiated");
+
     }
 
 
