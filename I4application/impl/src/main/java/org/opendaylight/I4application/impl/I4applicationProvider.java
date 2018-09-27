@@ -25,13 +25,12 @@ public class I4applicationProvider implements BindingAwareConsumer {
         this.dataBroker = dataBroker;
     }
 
-
-
     @Override
     public void onSessionInitialized(BindingAwareBroker.ConsumerContext session) {
         System.out.println("Session Initiated");
         this.notificationService = session.getSALService(NotificationService.class);
         mDNSParserImpl mDNSParser = new mDNSParserImpl(notificationService);
+        //InitialFlowExecutor initialFlowExecutor = new InitialFlowExecutor(notificationService);
     }
 
     /**
