@@ -7,6 +7,7 @@
  */
 package org.opendaylight.I4application.impl;
 
+import org.opendaylight.I4application.impl.Topology.*;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.controller.sal.binding.api.BindingAwareBroker;
@@ -20,6 +21,7 @@ public class I4applicationProvider implements BindingAwareConsumer {
 
     private DataBroker dataBroker;
     private NotificationService notificationService;
+    private NetworkGraphService networkGraphService;
 
     public I4applicationProvider(DataBroker dataBroker) {
         this.dataBroker = dataBroker;
@@ -31,6 +33,7 @@ public class I4applicationProvider implements BindingAwareConsumer {
         this.notificationService = session.getSALService(NotificationService.class);
         mDNSParserImpl mDNSParser = new mDNSParserImpl(notificationService);
         //InitialFlowExecutor initialFlowExecutor = new InitialFlowExecutor(notificationService);
+        init();
     }
 
     /**
@@ -38,7 +41,11 @@ public class I4applicationProvider implements BindingAwareConsumer {
      */
     public void init() {
         LOG.info("I4applicationProvider Session Initiated");
-
+        HostManager hostManager = new HostManager(dataBroker);
+        networkGraphService = new NetworkGraphImpl();
+        TopologyChangeListener topologyChangeListener = new TopologyChangeListener(dataBroker, hostManager, networkGraphService);
+        // Register for Data Change Events for Links and Addresses
+        topologyChangeListener.registerAsListener();
     }
 
 

@@ -51,7 +51,7 @@ public class mDNSParserImpl implements Ipv4PacketListener, EthernetPacketListene
 
     @Override
     public void onEthernetPacketReceived(EthernetPacketReceived notification) {
-        System.out.println("Ethernet notification");
+        //System.out.println("Ethernet notification");
         List<PacketChain> packetChainList = notification.getPacketChain();
         EthernetPacket ethernetPacket = (EthernetPacket) packetChainList.get(packetChainList.size()-2).getPacket();
 
