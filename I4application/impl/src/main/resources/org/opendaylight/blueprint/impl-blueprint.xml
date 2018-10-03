@@ -21,6 +21,8 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     class="org.opendaylight.I4application.impl.I4applicationProvider"
     init-method="init" destroy-method="close">
     <argument ref="dataBroker" />
+    <argument ref="notificationService"/>
+    <argument ref="salFlowService"/>
   </bean>
   <bean id="mDNSParserImpl" class="org.opendaylight.I4application.impl.mDNSParserImpl">
     <argument ref="notificationService"/>
@@ -31,4 +33,9 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="salFlowService"/>
   </bean>
 
+  <!--
+  <bean id="InComingPktHandler" class="org.opendaylight.I4application.impl.IncomingPktHandler">
+    <argument ref="notificationService"/>
+  </bean>
+  -->
 </blueprint>

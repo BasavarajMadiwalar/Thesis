@@ -75,7 +75,7 @@ public class InitialFlowExecutor implements DataChangeListener {
     private int flowPriority;
     private int flowIdleTimeout;
     private int flowHardTimeout;
-    private final String FLOW_ID_PREFIX = "L2switch-";
+    private final String FLOW_ID_PREFIX = "InitFlow-";
 
     private final short DEFAULT_FLOW_TABLE_ID = 0;
     private final int DEFAULT_FLOW_PRIORITY = 0;
@@ -83,7 +83,7 @@ public class InitialFlowExecutor implements DataChangeListener {
     private final int DEFAULT_FLOW_HARD_TIMEOUT = 0;
 
     private AtomicLong flowIdInc = new AtomicLong();
-    private AtomicLong flowCookieInc = new AtomicLong(0x2b00000000000000L);
+    private AtomicLong flowCookieInc = new AtomicLong(0x3b00000000000000L);
 
 
     public InitialFlowExecutor(NotificationService notificationService, DataBroker dataBroker, SalFlowService salFlowService) {
@@ -110,7 +110,10 @@ public class InitialFlowExecutor implements DataChangeListener {
         if(changednodeData !=null && !changednodeData.isEmpty()){
             Set<InstanceIdentifier<?>> nodeIds = changednodeData.keySet();
             if(nodeIds != null && !nodeIds.isEmpty()){
-                System.out.println("NodId of changedData: " + changednodeData.keySet());
+                // Try and capture only the value of node id
+                //InstanceIdentifier<?> nodeIID = (InstanceIdentifier<Node>) nodeIds;
+                //System.out.println("NodId of changedData: " + nodeIID.firstKeyOf(Node.class, NodeKey.class).getId().getValue());
+                //System.out.println("NodId of changedData: " + changednodeData.keySet());
                 initialFlowExecutor.submit(new InitialFlowWriter(nodeIds));
 
             }

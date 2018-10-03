@@ -15,9 +15,6 @@ import org.opendaylight.I4application.impl.utils.PacketParsingUtils;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.basepacket.rev140528.packet.chain.grp.PacketChain;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.EthernetPacketListener;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.EthernetPacketReceived;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.ethernet.packet.received.packet.chain.packet.EthernetPacket;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.ipv4.packet.received.packet.chain.packet.Ipv4Packet;
@@ -29,7 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class mDNSParserImpl implements Ipv4PacketListener, EthernetPacketListener {
+public class mDNSParserImpl implements Ipv4PacketListener {
 
     private final static Logger LOG = LoggerFactory.getLogger(mDNSParserImpl.class);
     private NotificationService notificationService;
@@ -45,18 +42,10 @@ public class mDNSParserImpl implements Ipv4PacketListener, EthernetPacketListene
 
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
-        System.out.println("Ipv4 Packet Recieved");
+        //System.out.println("Ipv4 Packet Recieved");
         decodeUDPpacket(notification);
     }
 
-    @Override
-    public void onEthernetPacketReceived(EthernetPacketReceived notification) {
-        //System.out.println("Ethernet notification");
-        List<PacketChain> packetChainList = notification.getPacketChain();
-        EthernetPacket ethernetPacket = (EthernetPacket) packetChainList.get(packetChainList.size()-2).getPacket();
-
-        byte[] ethdata = notification.getPayload();
-    }
 
     public void decodeUDPpacket(Ipv4PacketReceived ipv4PacketReceived){
 
@@ -80,7 +69,7 @@ public class mDNSParserImpl implements Ipv4PacketListener, EthernetPacketListene
 
         try {
             srcport = BitBufferHelper.getInt(BitBufferHelper.getBits(data, bitoffset, 16));
-            System.out.println("Dest UDP port number is: " + srcport);
+            //System.out.println("Dest UDP port number is: " + srcport);
         }catch (BufferException e){
             System.out.println(e.getMessage());
         }

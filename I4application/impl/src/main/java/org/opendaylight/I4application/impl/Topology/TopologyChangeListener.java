@@ -117,7 +117,7 @@ public class TopologyChangeListener implements DataChangeListener {
         }
         if (mac!=null && ipv4Address!=null){
             //Add a log ipv4 Address and Mac address is added
-            System.out.println("New Ipv4 Address Added: " + ipv4Address);
+            System.out.println("New Ipv4 Address Added: " + ipv4Address.getValue() + " & new mac added: " + mac.getValue());
         }else if (mac != null){
             // Add a log saying only Mac address is added
             System.out.println("New mac added: " + mac);
