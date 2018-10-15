@@ -1,0 +1,11 @@
+module urlNotification {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:urlNotification";
+    prefix "urlNotif";
+
+    revision "2015-01-05" {
+        description "Initial revision of I4application model";
+    }
+
+	
+}

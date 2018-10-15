@@ -15,7 +15,6 @@ import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataBroker;
 import org.opendaylight.controller.md.sal.common.api.data.AsyncDataChangeEvent;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
-import org.opendaylight.openflowplugin.api.OFConstants;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Uri;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
@@ -187,7 +186,7 @@ public class InitialFlowExecutor implements DataChangeListener {
                     .setOrder(0)
                     .setKey(new ActionKey(0))
                     .setAction(new OutputActionCaseBuilder()
-                            .setOutputAction(new OutputActionBuilder().setMaxLength(0xffff)
+                            .setOutputAction(new OutputActionBuilder().setMaxLength(0x05dc)// Use 0xffff to set OFPCML_NO_BUFFER
                                     .setOutputNodeConnector(new Uri(OutputPortValues.CONTROLLER.toString()))
                                     .build())
                             .build())
@@ -212,7 +211,6 @@ public class InitialFlowExecutor implements DataChangeListener {
                             .setInstruction(ImmutableList.of(applyActionsInstruction)) //
                             .build()) //
                     .setPriority(priority) //
-                    .setBufferId(OFConstants.OFP_NO_BUFFER) //
                     .setHardTimeout(flowHardTimeout) //
                     .setIdleTimeout(flowIdleTimeout) //
                     .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))

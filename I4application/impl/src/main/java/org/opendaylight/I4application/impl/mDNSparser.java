@@ -8,19 +8,16 @@
 
 package org.opendaylight.I4application.impl;
 
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
-
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Map;
 
 public class mDNSparser {
 
     private static final int SRV_RECORD_VAL = 33;
     
 
-    public static Boolean mDNSRecordParser(byte[] mDNSbinary, Map urlTable, Ipv4Address srcIp){
+    public static String mDNSRecordParser(byte[] mDNSbinary){
         String mDNSString = new String(mDNSbinary, StandardCharsets.UTF_8);
         //Obtain the postion of _opcua-tcp
         int protocolpos = mDNSString.indexOf("_opcua-tcp");
@@ -37,11 +34,10 @@ public class mDNSparser {
                 //System.out.println("Record val and port number are : " + recordval + " and " + port);
                 byte[] targetarray = Arrays.copyOfRange(mDNSbinary, recordpos + 15, recordpos + 14 + DL - 7);
                 String hostname = new String(targetarray, StandardCharsets.UTF_8) + ":" + port;
-                urlTable.put(srcIp, hostname);
-                return true;
+                return hostname;
             }
-            return false;
+            return null;
         }
-        return false;
+        return null;
     }
 }

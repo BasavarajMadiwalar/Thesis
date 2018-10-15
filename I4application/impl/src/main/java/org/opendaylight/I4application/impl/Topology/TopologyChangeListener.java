@@ -50,6 +50,8 @@ public class TopologyChangeListener implements DataChangeListener {
     private NetworkGraphService networkGraphService;
     private Long graphRefreshDelay = 1000L;
 
+
+
     private ListenerRegistration<DataChangeListener> linkDataChangeListener;
     private ListenerRegistration<DataChangeListener> addressDataChangeListener;
 
@@ -60,7 +62,10 @@ public class TopologyChangeListener implements DataChangeListener {
         this.dataBroker = dataBroker;
         this.hostManager = hostManager;
         this.networkGraphService = networkGraphService;
+
     }
+
+
 
     public void registerAsListener(){
         // Use it to listen for data changes to specific nodes in

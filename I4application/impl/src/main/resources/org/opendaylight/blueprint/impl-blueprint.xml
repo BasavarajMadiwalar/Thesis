@@ -33,6 +33,8 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="salFlowService"/>
   </bean>
 
+  <!-- Its a good practise to include the Class to be instantiated in Blueprint
+      rather than using the Activator or Provider class -->
   <!--
   <bean id="InComingPktHandler" class="org.opendaylight.I4application.impl.IncomingPktHandler">
     <argument ref="notificationService"/>
