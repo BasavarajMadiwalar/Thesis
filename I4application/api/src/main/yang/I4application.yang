@@ -3,7 +3,23 @@ module I4application {
     namespace "urn:opendaylight:params:xml:ns:yang:I4application";
     prefix "I4application";
 
+    import ietf-inet-types {
+            prefix inet;
+            revision-date 2013-07-15;
+        }
+
     revision "2015-01-05" {
         description "Initial revision of I4application model";
     }
+
+    notification co-ordinator-identified {
+        description "Indicated the reception of new SRV Record";
+
+        leaf opcua-server-address {
+            type inet:ipv4-address;
+        }
+        leaf co-ordinator-address {
+            type inet:ipv4-address;
+        }
+    } // notification co-ordinator-identified
 }

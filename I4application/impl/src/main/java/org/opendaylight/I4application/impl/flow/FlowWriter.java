@@ -18,9 +18,7 @@ import org.opendaylight.I4application.impl.Topology.HostManager;
 import org.opendaylight.I4application.impl.utils.InstanceIdentifierUtils;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.openflowplugin.api.OFConstants;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Prefix;
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Uri;
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.*;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev130715.MacAddress;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
@@ -48,6 +46,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instru
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.Instruction;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
@@ -57,12 +56,17 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.ethernet.match.fields.EthernetTypeBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatch;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.EthernetMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.IpMatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.Layer4Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4Match;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.KnownEtherType;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -70,12 +74,16 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class FlowWriter {
+    private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.flow.FlowWriter.class);
 
     private AtomicLong flowCookieInc = new AtomicLong(0x4a00000000000000L);
     private AtomicLong flowIdInc = new AtomicLong();
     private short flowTableId = 0;
     private final String FLOW_ID_PREFIX = "L2switch-";
+    private final String MDNS_FLOW_ID_PREFIX = "L2switch-mDNS-";
     private List<Link> path = null;
+
+    public final static short UDP = 17;
 
 
     private DataBroker dataBroker;
@@ -165,6 +173,7 @@ public class FlowWriter {
         return true;
     }
 
+
     public boolean addFlowToPathNodes(Ipv4Address srcIP, MacAddress srcMac,
                                       Ipv4Address dstIP, MacAddress dstMac, Node srcNode, List<Link> path){
 
@@ -176,12 +185,13 @@ public class FlowWriter {
         // Loop through the path and add flow per link
         for (Link link: path){
 
-            // Get the current link SrcNodeId
+            // Get the current link src switch id
             curLinkSrcNodeId = link.getSource().getSourceNode().toString();
 
             /**
              * Both prevlinkDstNode and CurrentLink DstNode should be same.
-             * Else, we reverse NodeConnector
+             * Else, we reverse NodeConnector as the src switch is identified based on the time of switch
+             * coming online
              */
 
             if (prvLinkSrcNodeId.equals(curLinkSrcNodeId)){
@@ -210,6 +220,14 @@ public class FlowWriter {
     public InstanceIdentifier<Flow> buildFlowPath(NodeConnectorRef nodeConnectorRef, TableKey flowTableKey){
 
         FlowId flowId = new FlowId(FLOW_ID_PREFIX + String.valueOf(flowIdInc.getAndIncrement()));
+        FlowKey flowKey = new FlowKey(flowId);
+
+        return InstanceIdentifierUtils.generateFlowInstanceIdentifier(nodeConnectorRef, flowTableKey, flowKey);
+
+    }
+
+    public InstanceIdentifier<Flow> buildmDNSFlowPath(NodeConnectorRef nodeConnectorRef, TableKey flowTableKey){
+        FlowId flowId = new FlowId(MDNS_FLOW_ID_PREFIX + String.valueOf(flowIdInc.getAndIncrement()));
         FlowKey flowKey = new FlowKey(flowId);
 
         return InstanceIdentifierUtils.generateFlowInstanceIdentifier(nodeConnectorRef, flowTableKey, flowKey);
@@ -270,15 +288,6 @@ public class FlowWriter {
                 .build();
 
 
-//        ActionBuilder actionBuilder = new ActionBuilder()
-//                                        .setOrder(0)
-//                                        .setAction(new OutputActionCaseBuilder()
-//                                        .setOutputAction(new OutputActionBuilder()
-//                                                .setMaxLength(0xffff)
-//                                                .setOutputNodeConnector(destPortUri)
-//                                                .build()).build());
-//        Action outputaction = actionBuilder.build();
-
         ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputaction)).build();
 
         // Add the applyaction into an Instruction
@@ -308,6 +317,168 @@ public class FlowWriter {
     }
 
 
+    /* Below Section of code is used for setting up mDNS Packet Flows */
+    public boolean mDNSForwardPathFlow(Ipv4Address srcIP, Ipv4Address dstIP, Node srcNode, Node dstNode, NodeConnector srcNC,
+                                       NodeConnector dstNC, List<Link> path){
+        LOG.info("mDNS Forward Path Flow");
+
+        NodeConnectorRef srcNCRef, dstNCRef;
+
+        InstanceIdentifier<NodeConnector> srcNCIID = InstanceIdentifierUtils
+                .createNodeConnectorIdentifier(srcNode.getId().getValue(),srcNC.getId().getValue());
+
+        InstanceIdentifier<NodeConnector> dstNCIID = InstanceIdentifierUtils
+                .createNodeConnectorIdentifier(dstNode.getId().getValue(), dstNC.getId().getValue());
+
+        srcNCRef = new NodeConnectorRef(srcNCIID);
+        dstNCRef = new NodeConnectorRef(dstNCIID);
+
+        // Add Flow to Switch Connecting dst host such that for each SRC IP and mDNS MC IP, output to specific port
+        boolean dstNodeFlow = addFlowtoNode(srcIP, dstIP, dstNCRef);
+        if (dstNodeFlow){
+            addmDNSFlowtoPathNode(srcIP, dstIP, srcNode, path);
+        }
+        return true;
+    }
+
+    /* Here Add Flow to SRC Node and Dst Node
+    * */
+    public boolean addFlowtoNode(Ipv4Address srcIP, Ipv4Address dstIP,
+                                 NodeConnectorRef dstNCref){
+
+        // Create a flow
+        Flow flow = createmDNSFlow(srcIP, dstIP, dstNCref);
+
+        // Create Flow tablekey
+        TableKey flowTableKey = new TableKey((short)flowTableId);
+
+        // Create an IID for flow
+        InstanceIdentifier<Flow> flowPath = buildmDNSFlowPath(dstNCref, flowTableKey);
+
+        LOG.info("Adding flow to Node");
+        // write flow to config data
+        writeFlowConfigData(flowPath, flow);
+        return true;
+    }
+
+    /* Here implement Add flow to path
+    * */
+
+
+    /* To do : Implement Forward Rule for mDNS Packets
+
+     */
+
+    public Flow createmDNSFlow(Ipv4Address srcIP,
+                                  Ipv4Address dstIP, NodeConnectorRef dstPort){
+        //Create a Flow Builder
+        FlowBuilder flowBuilder = new FlowBuilder().setTableId(flowTableId).setFlowName("MDNS_FLOW");
+        flowBuilder.setId(new FlowId(Long.toString(flowBuilder.hashCode())));
+
+        // Create Ethernet Match builder
+        EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder();
+
+        ethernetMatchBuilder.setEthernetType(new EthernetTypeBuilder()
+                .setType(new EtherType(Long.valueOf(KnownEtherType.Ipv4.getIntValue()))).build());
+
+        EthernetMatch ethernetMatch = ethernetMatchBuilder.build();
+
+        //Create Ipv4 Match Builder
+
+        Ipv4MatchBuilder ipv4MatchBuilder = new Ipv4MatchBuilder();
+        ipv4MatchBuilder.setIpv4Source(new Ipv4Prefix(srcIP.getValue() + "/32")).build();
+        ipv4MatchBuilder.setIpv4Destination(new Ipv4Prefix(dstIP.getValue() + "/32")).build();
+
+        Ipv4Match ipv4Match = ipv4MatchBuilder.build();
+
+
+        // Layer 4 Match
+        IpMatchBuilder ipMatchBuilder = new IpMatchBuilder();
+        ipMatchBuilder.setIpProto(IpVersion.Ipv4);
+
+        ipMatchBuilder.setIpProtocol(UDP);
+
+        UdpMatchBuilder udpMatchBuilder = new UdpMatchBuilder();
+        udpMatchBuilder.setUdpSourcePort(new PortNumber(5353)).build();
+        udpMatchBuilder.setUdpDestinationPort(new PortNumber(5353)).build();
+
+        Layer4Match udpMatch = udpMatchBuilder.build();
+
+
+        Match match = new MatchBuilder().setEthernetMatch(ethernetMatch)
+                    .setLayer3Match(ipv4Match)
+                    .setIpMatch(ipMatchBuilder.build())
+                    .setLayer4Match(udpMatch)
+                    .build();
+
+        Uri destPortUri = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+
+        // Create an Action that forwards packet to dstport upon succesful match
+
+        Action outputaction = new ActionBuilder()
+                            .setOrder(0)
+                            .setAction(new OutputActionCaseBuilder()
+                                .setOutputAction(new OutputActionBuilder()
+                                .setMaxLength(0xffff)
+                                .setOutputNodeConnector(destPortUri)
+                                .build())
+                            .build())
+                            .build();
+
+        ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputaction)).build();
+
+        Instruction applyActionsInstruction = new InstructionBuilder()
+                                                .setOrder(0)
+                                                .setInstruction(new ApplyActionsCaseBuilder()
+                                                        .setApplyActions(applyActions)
+                                                        .build())
+                                                .build();
+
+        flowBuilder.setMatch(match)
+                    .setInstructions(new InstructionsBuilder()
+                    .setInstruction(ImmutableList.of(applyActionsInstruction))
+                    .build())
+                .setPriority(10)
+                .setBufferId(OFConstants.OFP_NO_BUFFER)
+                .setHardTimeout(720)
+                .setIdleTimeout(720)
+                .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+                .setFlags(new FlowModFlags(false,false,false,false,false));
+
+        return flowBuilder.build();
+
+    }
+
+    public boolean addmDNSFlowtoPathNode(Ipv4Address srcIP, Ipv4Address dstIP , Node srcNode
+                                    ,List<Link> path){
+        NodeConnectorRef srcNCRef, dstNCRef;
+        int TotLinks = path.size();
+        NodeId prvSrcNodeId = srcNode.getId();
+        NodeId curLinkSrcNodeId = null;
+
+        for(Link link: path){
+            curLinkSrcNodeId = new NodeId(link.getSource().getSourceNode());
+
+            if (prvSrcNodeId.equals(curLinkSrcNodeId)){
+                srcNCRef = HostManager.getSourceNodeConnectorRef(link);
+                dstNCRef = HostManager.getDestNodeConnectorRef(link);
+                prvSrcNodeId = new NodeId(link.getDestination().getDestNode());
+            }else {
+                srcNCRef = HostManager.getDestNodeConnectorRef(link);
+                dstNCRef = HostManager.getSourceNodeConnectorRef(link);
+                prvSrcNodeId = new NodeId(link.getSource().getSourceNode());
+            }
+
+            addFlowtoNode(srcIP, dstIP, srcNCRef);
+            addFlowtoNode(srcIP, dstIP, dstNCRef);
+            TotLinks--;
+        }
+        if (TotLinks != 0){
+            return false;
+        }
+        return true;
+    }
+
     private Future<RpcResult<AddFlowOutput>> writeFlowConfigData(InstanceIdentifier<Flow> flowPath, Flow flow){
         final InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
         final InstanceIdentifier<Node> nodeIID = flowPath.<Node>firstIdentifierOf(Node.class);
@@ -318,5 +489,4 @@ public class FlowWriter {
         builder.setTransactionUri(new Uri(flow.getId().getValue()));
         return salFlowService.addFlow(builder.build());
     }
-
 }

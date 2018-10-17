@@ -14,8 +14,10 @@ import org.opendaylight.I4application.impl.Topology.TopologyChangeListener;
 import org.opendaylight.I4application.impl.flow.FlowManager;
 import org.opendaylight.I4application.impl.flow.FlowWriter;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,16 +29,22 @@ public class I4applicationProvider {
     private NotificationService notificationService;
     private NetworkGraphService networkGraphService;
     private SalFlowService salFlowService;
+    private NotificationPublishService notificationPublishService;
+    private PacketProcessingService packetProcessingService;
 
     /**
      * The Constructor is called when blue print container is created.
      * As I4applicationprovider is added to the blueprint container
       */
 
-    public I4applicationProvider(DataBroker dataBroker, NotificationService notificationService, SalFlowService salFlowService) {
+    public I4applicationProvider(DataBroker dataBroker, NotificationService notificationService,
+                                 SalFlowService salFlowService, NotificationPublishService notificationPublishService,
+                                 PacketProcessingService packetProcessingService) {
         this.dataBroker = dataBroker;
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
+        this.notificationPublishService = notificationPublishService;
+        this.packetProcessingService = packetProcessingService;
     }
 
 
@@ -72,11 +80,23 @@ public class I4applicationProvider {
 
 
         /**
+         * Packet Handler - used to perform PacketOut
+         */
+
+        PacketDispatcher packetDispatcher = new PacketDispatcher(packetProcessingService, hostManager);
+
+        /**
          * Create InComingPktHandler - Handle non-mDNS packets, non ICMP packets
          */
         IncomingPktHandler incomingPktHandler = new IncomingPktHandler(notificationService, flowManager);
         LOG.info("Imcoming Packet Handler is instantiated");
 
+        /**
+         * Create an Instance of mDNSPacket Handler
+         */
+
+        mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, notificationPublishService, flowManager, packetDispatcher);
+        LOG.info("Instance of mDNS Packet Handler created");
     }
 
     /**

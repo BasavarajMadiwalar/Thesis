@@ -3,9 +3,26 @@ module urlNotification {
     namespace "urn:opendaylight:params:xml:ns:yang:urlNotification";
     prefix "urlNotif";
 
+    import ietf-inet-types {
+        prefix inet;
+        revision-date 2013-07-15;
+    }
     revision "2015-01-05" {
         description "Initial revision of I4application model";
     }
 
-	
+    notification discoveryUrlNotification {
+        description
+            "Indicated the reception of new SRV Record";
+
+        leaf src-IPAddress {
+            type inet:ipv4-address;
+        }
+        leaf discovery-url {
+            type string {
+                length "0 .. 255";
+            }
+        }
+    } // notification discoveryUrl
+
 }

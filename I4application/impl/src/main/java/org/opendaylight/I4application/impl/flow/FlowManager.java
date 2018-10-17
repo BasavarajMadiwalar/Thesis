@@ -22,6 +22,8 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NodeId;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.LinkedList;
@@ -29,10 +31,17 @@ import java.util.List;
 
 public class FlowManager {
 
+    private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.flow.FlowManager.class);
+
     private HostManager hostManager;
     private NetworkGraphService networkGraphService;
     private List<List<Link>> paths = null;
     private FlowWriter flowWriter;
+
+    private Ipv4Address mDNSMulticastAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
+//    private MacAddress mDNSMACAddr = MacAddress.getDefaultInstance(" 01:00:5E:00:00:FB");
+
+
     public FlowManager(HostManager hostManager, NetworkGraphService networkGraphService, FlowWriter flowWriter) {
         this.hostManager = hostManager;
         this.networkGraphService = networkGraphService;
@@ -59,9 +68,6 @@ public class FlowManager {
         Node srcNode = hostManager.getIpNode(srcIP);
         Node dstNode = hostManager.getIpNode(dstIP);
 
-        //System.out.println("The Source Node is : " + srcNode.getKey().getId().getValue());
-        //srcNode.getKey().getId().getValue();
-
         if (srcNode !=null && srcNodeConn != null && dstNode !=null && dstNodeConn != null){
             srcNodeId = new NodeId(srcNode.getKey().getId().getValue());
             dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
@@ -85,6 +91,45 @@ public class FlowManager {
         }
     }
 
+    /**
+     * Method is used to find path between srchost and identified co-ordinator
+     * @param srcIP source host ip address
+     * @param dstIP Identifed coordinator ip address
+     */
+
+    public boolean mDNSPktFlowManager(Ipv4Address srcIP, Ipv4Address dstIP){
+        LOG.info("mDNS Packet Flow Manager");
+
+        List<Link> path = null;
+        List<Link> reversePath = null;
+        boolean forPath, revPath;
+
+        NodeId srcNodeId, dstNodeId;
+
+        // Use the SrcIP and dstIP to get the NodeConnector and Node from the host Manager
+        NodeConnector srcNodeConn = hostManager.getIpNodeConnector(srcIP);
+        NodeConnector dstNodeConn = hostManager.getIpNodeConnector(dstIP);
+
+        Node srcNode = hostManager.getIpNode(srcIP);
+        Node dstNode = hostManager.getIpNode(dstIP);
+
+        if (srcNode != null && dstNode != null && srcNodeConn != null && dstNodeConn != null){
+            srcNodeId = new NodeId(srcNode.getKey().getId().getValue());
+            dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
+
+            path = FindPath(srcNodeId, dstNodeId);
+            if(path != null){
+                LOG.info("Shortest Path found");
+                // Path is between src host and coordinator, but we set the match field as the src Ip and multicast IP address
+                forPath = flowWriter.mDNSForwardPathFlow(srcIP, mDNSMulticastAddr,
+                        srcNode, dstNode, srcNodeConn, dstNodeConn, path);
+                return forPath;
+            }
+            return false;
+        }
+        return false;
+    }
+
     public List<Link> FindPath(NodeId srcNodeId, NodeId dstNodeId){
         List<Link> shortestPath = null;
         //ArrayList<Link> shortestPath = null;
@@ -105,6 +150,4 @@ public class FlowManager {
         }
         return null;
     }
-
-
 }

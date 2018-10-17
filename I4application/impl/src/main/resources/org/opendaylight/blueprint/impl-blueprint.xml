@@ -15,7 +15,10 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     interface="org.opendaylight.controller.md.sal.binding.api.DataBroker"
     odl:type="default" />
   <reference id="notificationService" interface="org.opendaylight.controller.md.sal.binding.api.NotificationService"/>
+  <reference id="notificationProvider" interface="org.opendaylight.controller.md.sal.binding.api.NotificationPublishService"/>
   <odl:rpc-service id="salFlowService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService"/>
+  <odl:rpc-service id="PacketProcessingService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService"/>
+
 
   <bean id="provider"
     class="org.opendaylight.I4application.impl.I4applicationProvider"
@@ -23,14 +26,23 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="dataBroker" />
     <argument ref="notificationService"/>
     <argument ref="salFlowService"/>
+    <argument ref="notificationProvider"/>
+    <argument ref="PacketProcessingService"/>
   </bean>
-  <bean id="mDNSParserImpl" class="org.opendaylight.I4application.impl.mDNSParserImpl">
+  <!--
+  <bean id="mDNSPacketHandler" class="org.opendaylight.I4application.impl.mDNSPacketHandler">
     <argument ref="notificationService"/>
-  </bean>
+    <argument ref="notificationProvider"/>
+  </bean> -->
+
   <bean id="InitialFlowExecutor" class="org.opendaylight.I4application.impl.Topology.InitialFlowExecutor">
     <argument ref="notificationService"/>
     <argument ref="dataBroker"/>
     <argument ref="salFlowService"/>
+  </bean>
+  <bean id="UrlNotificationHandler" class="org.opendaylight.I4application.impl.UrlNotificationHandler">
+    <argument ref="notificationService"/>
+    <argument ref="notificationProvider"/>
   </bean>
 
   <!-- Its a good practise to include the Class to be instantiated in Blueprint
