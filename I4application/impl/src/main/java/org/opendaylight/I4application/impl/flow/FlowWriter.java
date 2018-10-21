@@ -20,7 +20,10 @@ import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.openflowplugin.api.OFConstants;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.*;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev130715.MacAddress;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.GroupActionCaseBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.OutputActionCaseBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.group.action._case.GroupAction;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.group.action._case.GroupActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.action.output.action._case.OutputActionBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.Action;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.action.types.rev131112.action.list.ActionBuilder;
@@ -451,6 +454,9 @@ public class FlowWriter {
                             .build())
                             .build();
 
+
+
+
         ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputaction)).build();
 
         Instruction applyActionsInstruction = new InstructionBuilder()
@@ -511,7 +517,7 @@ public class FlowWriter {
     *  server in multi-cast manner*/
 
     public void mDNSReverseFlowHanlder(Ipv4Address opcua_Server, Ipv4Address coordinator,
-                                       Node srcNode, NodeConnector srcNC,  List<Link> path)
+                                       Node srcNode, NodeConnector srcNC,  List<Link> path, Ipv4Address multicastAddress)
     {
         LOG.info("mDNS Reverse Flow Handler");
         NodeId currlinkSRCNodeId, prvlinkDstNodeId;
@@ -532,19 +538,19 @@ public class FlowWriter {
             if (currlinkSRCNodeId.equals(prvlinkDstNodeId)){
                 prvlinkDstNodeId = new NodeId(link.getDestination().getDestNode());
                 // Call mDNS Group Handler create group
-                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref);
+                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref, multicastAddress);
                 dstNCref = HostManager.getDestNodeConnectorRef(link);
             }else {
                 currlinkSRCNodeId = new NodeId(link.getDestination().getDestNode());
                 prvlinkDstNodeId = new NodeId(link.getSource().getSourceNode());
-                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref);
+                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref, multicastAddress);
                 dstNCref = HostManager.getSourceNodeConnectorRef(link);
             }
         }
 
         // Here we add the group for destination node - prvlinkDstNodeId is node
         // the node connecting identified coordinator
-        mDNSGroupHandler(coordinator, prvlinkDstNodeId, dstNCref);
+        mDNSGroupHandler(coordinator, prvlinkDstNodeId, dstNCref, multicastAddress);
 
 //        for (Map.Entry<NodeId, HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>> entry
 //                    : groupTable.entrySet()){
@@ -556,7 +562,7 @@ public class FlowWriter {
     }
 
     public void mDNSGroupHandler(Ipv4Address coordinator, NodeId currentNodeId,
-                                 NodeConnectorRef dstNCRef){
+                                 NodeConnectorRef dstNCRef, Ipv4Address multicastAddress){
         LOG.info("mDNS Group Handler");
 
         ArrayList<NodeConnectorRef> newPortList = new ArrayList<NodeConnectorRef>();
@@ -603,6 +609,12 @@ public class FlowWriter {
             System.out.println("could not add group");
             e.printStackTrace();
         }
+
+        Flow flow = createMulticastgroupflow(coordinator, multicastAddress, dstNCRef);
+        TableKey flowTableKey = new TableKey((short)flowTableId);
+        InstanceIdentifier<Flow> flowPath = buildmDNSFlowPath(dstNCRef, flowTableKey);
+        writeFlowConfigData(flowPath, flow);
+
     }
 
     public Group createGroup(Ipv4Address coordinator, List<NodeConnectorRef> portlist)
@@ -655,6 +667,78 @@ public class FlowWriter {
         return group;
     }
     /* writeGroupConfigData writes group info to config Data */
+
+    public Flow createMulticastgroupflow(Ipv4Address coordinator, Ipv4Address dstIP, NodeConnectorRef dstPort){
+        LOG.info("Create Multicast Group");
+
+        long groupid = coordinator.hashCode();
+
+        FlowBuilder flowBuilder = new FlowBuilder().setTableId(flowTableId).setFlowName("MULTICAST_FLOW");
+        flowBuilder.setId(new FlowId(Long.toString(flowBuilder.hashCode())));
+
+        // Create EhternetMatchBuilder
+        EthernetMatchBuilder ethernetMatchBuilder = new EthernetMatchBuilder();
+        ethernetMatchBuilder.setEthernetType(new EthernetTypeBuilder()
+                            .setType(new EtherType(Long.valueOf(KnownEtherType.Ipv4.getIntValue()))).build());
+        EthernetMatch ethernetMatch = ethernetMatchBuilder.build();
+
+        // Create an Ipv4 Match builder
+
+        Ipv4MatchBuilder ipv4MatchBuilder = new Ipv4MatchBuilder();
+        ipv4MatchBuilder.setIpv4Source(new Ipv4Prefix(coordinator.getValue() + "/32")).build();
+        ipv4MatchBuilder.setIpv4Destination(new Ipv4Prefix(dstIP.getValue() + "/32")).build();
+        Ipv4Match ipv4Match = ipv4MatchBuilder.build();
+
+        //Layer 4 Match
+        IpMatchBuilder ipMatchBuilder = new IpMatchBuilder();
+        ipMatchBuilder.setIpProto(IpVersion.Ipv4);
+
+        ipMatchBuilder.setIpProtocol(UDP);
+
+        UdpMatchBuilder udpMatchBuilder = new UdpMatchBuilder();
+        udpMatchBuilder.setUdpSourcePort(new PortNumber(5353)).build();
+        udpMatchBuilder.setUdpDestinationPort(new PortNumber(5353)).build();
+
+        Layer4Match udpMatch = udpMatchBuilder.build();
+
+        Match match = new MatchBuilder().setEthernetMatch(ethernetMatch)
+                                        .setLayer3Match(ipv4Match)
+                                        .setIpMatch(ipMatchBuilder.build())
+                                        .setLayer4Match(udpMatch)
+                                        .build();
+
+        GroupAction groupAction = new GroupActionBuilder()
+                                .setGroupId(groupid)
+                                .setGroup("mDNS Multicast")
+                                .build();
+
+        Action outputaction = new ActionBuilder()
+                                .setOrder(0)
+                                .setAction(new GroupActionCaseBuilder()
+                                        .setGroupAction(groupAction).build()).build();
+
+
+        ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputaction)).build();
+
+        Instruction applyActionsInstruction = new InstructionBuilder()
+                                                .setOrder(0)
+                                                .setInstruction(new ApplyActionsCaseBuilder()
+                                                                .setApplyActions(applyActions)
+                                                                .build())
+                                                .build();
+        flowBuilder.setMatch(match)
+                    .setInstructions(new InstructionsBuilder()
+                    .setInstruction(ImmutableList.of(applyActionsInstruction))
+                    .build())
+                .setPriority(10)
+                .setBufferId(OFConstants.OFP_NO_BUFFER)
+                .setHardTimeout(720)
+                .setIdleTimeout(720)
+                .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
+                .setFlags(new FlowModFlags(false,false,false,false,false));
+
+        return flowBuilder.build();
+    }
 
     private Future<RpcResult<AddFlowOutput>> writeFlowConfigData(InstanceIdentifier<Flow> flowPath, Flow flow){
         final InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);

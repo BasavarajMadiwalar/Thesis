@@ -124,7 +124,7 @@ public class FlowManager {
                 forPath = flowWriter.mDNSForwardPathFlow(srcIP, mDNSMulticastAddr,
                         srcNode, dstNode, srcNodeConn, dstNodeConn, path);
                 if (forPath){
-                    flowWriter.mDNSReverseFlowHanlder(srcIP,dstIP,srcNode,srcNodeConn, path);
+                    flowWriter.mDNSReverseFlowHanlder(srcIP,dstIP,srcNode,srcNodeConn, path, mDNSMulticastAddr);
                 }
                 return forPath;
             }
