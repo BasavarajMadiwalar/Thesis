@@ -123,6 +123,9 @@ public class FlowManager {
                 // Path is between src host and coordinator, but we set the match field as the src Ip and multicast IP address
                 forPath = flowWriter.mDNSForwardPathFlow(srcIP, mDNSMulticastAddr,
                         srcNode, dstNode, srcNodeConn, dstNodeConn, path);
+                if (forPath){
+                    flowWriter.mDNSReverseFlowHanlder(srcIP,dstIP,srcNode,srcNodeConn, path);
+                }
                 return forPath;
             }
             return false;

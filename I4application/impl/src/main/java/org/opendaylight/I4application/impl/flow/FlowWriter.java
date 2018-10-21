@@ -45,6 +45,21 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instru
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.instruction.apply.actions._case.ApplyActionsBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.Instruction;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.types.rev131026.instruction.list.InstructionBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.AddGroupInput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.AddGroupInputBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.AddGroupOutput;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.SalGroupService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.BucketId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.GroupId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.GroupRef;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.GroupTypes;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.group.Buckets;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.group.BucketsBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.group.buckets.Bucket;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.group.buckets.BucketBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.group.buckets.BucketKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.groups.Group;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.groups.GroupBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
@@ -69,7 +84,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -83,15 +101,21 @@ public class FlowWriter {
     private final String MDNS_FLOW_ID_PREFIX = "L2switch-mDNS-";
     private List<Link> path = null;
 
-    public final static short UDP = 17;
+    /* Variable related to mDNS groups and reverse flow */
+    private HashMap<NodeId, HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>> groupTable =
+            new HashMap<NodeId, HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>>();
+    private AtomicLong bucketIdInc = new AtomicLong();
 
+    public final static short UDP = 17;
 
     private DataBroker dataBroker;
     private SalFlowService salFlowService;
+    private SalGroupService salGroupService;
 
-    public FlowWriter(SalFlowService salFlowService, DataBroker dataBroker) {
+    public FlowWriter(SalFlowService salFlowService, DataBroker dataBroker, SalGroupService salGroupService) {
         this.salFlowService = salFlowService;
         this.dataBroker = dataBroker;
+        this.salGroupService = salGroupService;
     }
 
     /**
@@ -227,11 +251,11 @@ public class FlowWriter {
     }
 
     public InstanceIdentifier<Flow> buildmDNSFlowPath(NodeConnectorRef nodeConnectorRef, TableKey flowTableKey){
+
         FlowId flowId = new FlowId(MDNS_FLOW_ID_PREFIX + String.valueOf(flowIdInc.getAndIncrement()));
         FlowKey flowKey = new FlowKey(flowId);
 
         return InstanceIdentifierUtils.generateFlowInstanceIdentifier(nodeConnectorRef, flowTableKey, flowKey);
-
     }
 
     public Flow createSrctoDstFlow(Ipv4Address dstIP, MacAddress dstMac, NodeConnectorRef dstPort){
@@ -411,7 +435,9 @@ public class FlowWriter {
                     .setLayer4Match(udpMatch)
                     .build();
 
+
         Uri destPortUri = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+
 
         // Create an Action that forwards packet to dstport upon succesful match
 
@@ -463,14 +489,16 @@ public class FlowWriter {
                 srcNCRef = HostManager.getSourceNodeConnectorRef(link);
                 dstNCRef = HostManager.getDestNodeConnectorRef(link);
                 prvSrcNodeId = new NodeId(link.getDestination().getDestNode());
+
             }else {
                 srcNCRef = HostManager.getDestNodeConnectorRef(link);
                 dstNCRef = HostManager.getSourceNodeConnectorRef(link);
                 prvSrcNodeId = new NodeId(link.getSource().getSourceNode());
+
             }
 
             addFlowtoNode(srcIP, dstIP, srcNCRef);
-            addFlowtoNode(srcIP, dstIP, dstNCRef);
+            //addFlowtoNode(srcIP, dstIP, dstNCRef);
             TotLinks--;
         }
         if (TotLinks != 0){
@@ -478,6 +506,155 @@ public class FlowWriter {
         }
         return true;
     }
+
+    /* mDNSReverseHandler Manages creation of flows for coordinator to opc-ua
+    *  server in multi-cast manner*/
+
+    public void mDNSReverseFlowHanlder(Ipv4Address opcua_Server, Ipv4Address coordinator,
+                                       Node srcNode, NodeConnector srcNC,  List<Link> path)
+    {
+        LOG.info("mDNS Reverse Flow Handler");
+        NodeId currlinkSRCNodeId, prvlinkDstNodeId;
+        NodeConnectorRef dstNCref, opcuaserNCref;
+
+        InstanceIdentifier<NodeConnector> srcNCIID = InstanceIdentifierUtils.createNodeConnectorIdentifier(
+                                        srcNode.getId().getValue(), srcNC.getId().getValue());
+        dstNCref =  new NodeConnectorRef(srcNCIID);
+
+        prvlinkDstNodeId = srcNode.getId();
+        /*
+            Loop through links in Path
+         */
+
+        for (Link link: path){
+            currlinkSRCNodeId = new NodeId(link.getSource().getSourceNode());
+            // Check if src Node is same as prev SRC Node else reverse
+            if (currlinkSRCNodeId.equals(prvlinkDstNodeId)){
+                prvlinkDstNodeId = new NodeId(link.getDestination().getDestNode());
+                // Call mDNS Group Handler create group
+                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref);
+                dstNCref = HostManager.getDestNodeConnectorRef(link);
+            }else {
+                currlinkSRCNodeId = new NodeId(link.getDestination().getDestNode());
+                prvlinkDstNodeId = new NodeId(link.getSource().getSourceNode());
+                mDNSGroupHandler(coordinator, currlinkSRCNodeId, dstNCref);
+                dstNCref = HostManager.getSourceNodeConnectorRef(link);
+            }
+        }
+
+        // Here we add the group for destination node - prvlinkDstNodeId is node
+        // the node connecting identified coordinator
+        mDNSGroupHandler(coordinator, prvlinkDstNodeId, dstNCref);
+
+//        for (Map.Entry<NodeId, HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>> entry
+//                    : groupTable.entrySet()){
+//            System.out.println("Groups for Switch: " + entry.getKey());
+//            for (Map.Entry<Ipv4Address, ArrayList<NodeConnectorRef>> entry1: entry.getValue().entrySet()){
+//                System.out.println("Coordinator: " + entry1.getKey() + "Ports" + entry1.getValue());
+//            }
+//        }
+    }
+
+    public void mDNSGroupHandler(Ipv4Address coordinator, NodeId currentNodeId,
+                                 NodeConnectorRef dstNCRef){
+        LOG.info("mDNS Group Handler");
+
+        ArrayList<NodeConnectorRef> newPortList = new ArrayList<NodeConnectorRef>();
+        ArrayList<NodeConnectorRef> oldPortList = new ArrayList<NodeConnectorRef>();
+        HashMap<Ipv4Address, ArrayList<NodeConnectorRef>> newCoordinatorsMap = new HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>();
+       // List<HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>> groupList = new ArrayList<HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>>();
+        Group group = null;
+
+        if (!(groupTable.containsKey(currentNodeId))){
+            LOG.info("Creating an Entry for switch in Group Table");
+            newPortList.add(dstNCRef);
+            newCoordinatorsMap.put(coordinator, newPortList);
+            groupTable.put(currentNodeId, newCoordinatorsMap);
+            group = createGroup(coordinator, newPortList);
+        }else {
+            // check if the if the coordinator group is present for the switch
+            if (!(groupTable.get(currentNodeId)).containsKey(coordinator)){
+                LOG.info("Adding new coordinator group");
+                newPortList.add(dstNCRef);
+                (groupTable.get(currentNodeId)).put(coordinator, newPortList);
+                // Call create group
+                group = createGroup(coordinator, newPortList);
+            }else {
+                LOG.info("Adding new port to coordinator group");
+                oldPortList = (groupTable.get(currentNodeId)).get(coordinator);
+                try {
+                    (groupTable.get(currentNodeId)).get(coordinator).add(dstNCRef);
+                    newPortList = (groupTable.get(currentNodeId)).get(coordinator);
+                }catch (Exception e){
+                    LOG.debug("Could not add Port to coordinator port list");
+                }
+            }
+        }
+
+        InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, coordinator);
+        Future<RpcResult<AddGroupOutput>> future = addGrouptoConfigfData(groupIID, group);
+
+        try {
+            future.get();
+        } catch (InterruptedException e) {
+            System.out.println("InterruptedException Occured");
+            e.printStackTrace();
+        } catch (ExecutionException e) {
+            System.out.println("could not add group");
+            e.printStackTrace();
+        }
+    }
+
+    public Group createGroup(Ipv4Address coordinator, List<NodeConnectorRef> portlist)
+    {
+        LOG.info("Creating Group");
+
+        List<Bucket> bucketList = new ArrayList<Bucket>();
+        long groupId = coordinator.hashCode();
+
+        // Create a bucket and associated action for each port
+        for (NodeConnectorRef dstPort : portlist){
+
+            Uri dstPortUri = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
+            //Build an actions
+            Action outputaction = new ActionBuilder()
+                                    .setOrder(0)
+                                    .setAction(new OutputActionCaseBuilder().setOutputAction(new OutputActionBuilder()
+                                            .setMaxLength(0xffff)
+                                            .setOutputNodeConnector(dstPortUri)
+                                            .build())
+                                            .build())
+                                            .build();
+            List<Action> actionList = new ArrayList<Action>();
+            actionList.add(outputaction);
+
+
+            // Create Bucket
+            BucketId bucketId = new BucketId(bucketIdInc.incrementAndGet());
+            Bucket outputbucket = new BucketBuilder().setBucketId(bucketId)
+                                        .setKey(new BucketKey(bucketId))
+                                        .setAction(ImmutableList.of(outputaction))
+                                        .build();
+
+            bucketList.add(outputbucket);
+        }
+
+        // Add bucket to buckets.
+        BucketsBuilder bucketsBuilder = new BucketsBuilder().setBucket(bucketList);
+        Buckets buckets = bucketsBuilder.build();
+        // Build a group
+        GroupBuilder groupBuilder = new GroupBuilder();
+        groupBuilder.setGroupId(new GroupId(groupId))
+                    .setGroupType(GroupTypes.GroupAll)
+                    .setGroupName(coordinator.getValue().toString())
+                    .setContainerName(coordinator.getValue().toString())
+                    .setBarrier(false)
+                    .setBuckets(buckets);
+
+        Group group = groupBuilder.build();
+        return group;
+    }
+    /* writeGroupConfigData writes group info to config Data */
 
     private Future<RpcResult<AddFlowOutput>> writeFlowConfigData(InstanceIdentifier<Flow> flowPath, Flow flow){
         final InstanceIdentifier<Table> tableInstanceId = flowPath.<Table>firstIdentifierOf(Table.class);
@@ -488,5 +665,18 @@ public class FlowWriter {
         builder.setFlowTable(new FlowTableRef(tableInstanceId));
         builder.setTransactionUri(new Uri(flow.getId().getValue()));
         return salFlowService.addFlow(builder.build());
+    }
+
+    private Future<RpcResult<AddGroupOutput>> addGrouptoConfigfData(InstanceIdentifier<Group> groupPath
+            ,Group group){
+
+        final InstanceIdentifier<Node> nodeIID = groupPath.<Node>firstIdentifierOf(Node.class);
+        final AddGroupInputBuilder builder = new AddGroupInputBuilder(group);
+        builder.setNode(new NodeRef(nodeIID));
+        builder.setGroupRef(new GroupRef(groupPath));
+        builder.setTransactionUri(new Uri(group.getGroupId().getValue().toString()));
+        AddGroupInput addGroupInput = builder.build();
+        return salGroupService.addGroup(addGroupInput);
+
     }
 }

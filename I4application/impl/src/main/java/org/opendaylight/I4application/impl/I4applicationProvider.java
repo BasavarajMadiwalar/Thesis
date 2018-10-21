@@ -17,6 +17,7 @@ import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.SalGroupService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ public class I4applicationProvider {
     private SalFlowService salFlowService;
     private NotificationPublishService notificationPublishService;
     private PacketProcessingService packetProcessingService;
+    private SalGroupService salGroupService;
 
     /**
      * The Constructor is called when blue print container is created.
@@ -39,12 +41,14 @@ public class I4applicationProvider {
 
     public I4applicationProvider(DataBroker dataBroker, NotificationService notificationService,
                                  SalFlowService salFlowService, NotificationPublishService notificationPublishService,
-                                 PacketProcessingService packetProcessingService) {
+                                 PacketProcessingService packetProcessingService,
+                                 SalGroupService salGroupService) {
         this.dataBroker = dataBroker;
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
         this.notificationPublishService = notificationPublishService;
         this.packetProcessingService = packetProcessingService;
+        this.salGroupService = salGroupService;
     }
 
 
@@ -71,7 +75,7 @@ public class I4applicationProvider {
          *
          */
 
-        FlowWriter flowWriter = new FlowWriter(salFlowService, dataBroker); // In Future need to pass SALFlow Serive for flow writing
+        FlowWriter flowWriter = new FlowWriter(salFlowService, dataBroker, salGroupService); // In Future need to pass SALGroup Serive for flow writing
 
         /**
          * Create a Flow Manager and pass and Instance of Host Manager

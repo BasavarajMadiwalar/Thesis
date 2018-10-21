@@ -7,11 +7,15 @@
  */
 package org.opendaylight.I4application.impl.utils;
 
+import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.FlowKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.GroupId;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.groups.Group;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.group.types.rev131018.groups.GroupKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeId;
@@ -22,9 +26,9 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.N
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NetworkTopology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.TopologyId;
+import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.TopologyKey;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
-import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.Topology;
 /* InstanceIdentifierUtils provides utility functions related to InstanceIdentifiers.
  */
 public final class InstanceIdentifierUtils {
@@ -109,7 +113,7 @@ public final class InstanceIdentifierUtils {
 
     //
     public static final InstanceIdentifier<NodeConnector> createNodeConnectorIdentifier(final String nodeIdValue,
-            final String nodeConnectorIdValue) {
+                                                                                        final String nodeConnectorIdValue) {
         return createNodePath(new NodeId(nodeIdValue))
                 .child(NodeConnector.class, new NodeConnectorKey(new NodeConnectorId(nodeConnectorIdValue)));
     }
@@ -141,8 +145,8 @@ public final class InstanceIdentifierUtils {
      * @return
      */
     public static InstanceIdentifier<Flow> generateFlowInstanceIdentifier(final NodeConnectorRef nodeConnectorRef,
-            final TableKey flowTableKey,
-            final FlowKey flowKey) {
+                                                                          final TableKey flowTableKey,
+                                                                          final FlowKey flowKey) {
         return generateFlowTableInstanceIdentifier(nodeConnectorRef, flowTableKey).child(Flow.class, flowKey);
     }
 
@@ -152,5 +156,17 @@ public final class InstanceIdentifierUtils {
                 .child(Topology.class, new TopologyKey(new TopologyId(topologyId)))
                 .build();
     }
-}
 
+    /* Create an Instance Identifier for Group.
+       Since group is a child of Node, we also create the identifier for Node*/
+    public static InstanceIdentifier<Group> generateGroupInstanceIdentifier(final NodeConnectorRef nodeConnectorRef,
+                                                                            Ipv4Address coordinator) {
+        long groupId = coordinator.hashCode();
+        InstanceIdentifier<Group> groupIID = generateNodeInstanceIdentifier(nodeConnectorRef).builder()
+                                            .augmentation(FlowCapableNode.class)
+                                            .child(Group.class, new GroupKey(new GroupId(groupId)))
+                                            .build();
+        return groupIID;
+    }
+
+}

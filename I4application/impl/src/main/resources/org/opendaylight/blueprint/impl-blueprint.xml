@@ -17,6 +17,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <reference id="notificationService" interface="org.opendaylight.controller.md.sal.binding.api.NotificationService"/>
   <reference id="notificationProvider" interface="org.opendaylight.controller.md.sal.binding.api.NotificationPublishService"/>
   <odl:rpc-service id="salFlowService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService"/>
+  <odl:rpc-service id="salGroupService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.SalGroupService"/>
   <odl:rpc-service id="PacketProcessingService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService"/>
 
 
@@ -28,6 +29,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="salFlowService"/>
     <argument ref="notificationProvider"/>
     <argument ref="PacketProcessingService"/>
+    <argument ref="salGroupService"/>
   </bean>
   <!--
   <bean id="mDNSPacketHandler" class="org.opendaylight.I4application.impl.mDNSPacketHandler">
