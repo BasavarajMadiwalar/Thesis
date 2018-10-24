@@ -118,6 +118,12 @@ public class FlowManager {
             dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
 
             path = FindPath(srcNodeId, dstNodeId);
+            System.out.println("Path between " + srcNodeId.toString() + " and " +  dstNodeId.toString());
+            System.out.println("Links are: ");
+            for(Link link: path){
+                System.out.println(link);
+            }
+
             if(path != null){
                 LOG.info("Shortest Path found");
                 // Path is between src host and coordinator, but we set the match field as the src Ip and multicast IP address

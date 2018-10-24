@@ -43,6 +43,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private NotificationService notificationService;
     private FlowManager flowManager;
     private PacketDispatcher packetDispatcher;
+    private Ipv4Address coordinator = Ipv4Address.getDefaultInstance("10.0.0.3");
 
     // Data Structure for bufering mDNS packets and url details.
     public ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>
@@ -80,10 +81,13 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     @Override
     public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
         LOG.info("Coordinator selection recieved");
+        System.out.println("Coordinator selection recieved");
         Boolean flowsetupResult;
 
         Ipv4Address opcua_server = notification.getOpcuaServerAddress();
         Ipv4Address coordinator = notification.getCoOrdinatorAddress();
+
+        System.out.println("IP addres pain in mDNS pkthandler " + opcua_server.toString() + " and " + coordinator.toString());
 
         flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
         if (flowsetupResult){
@@ -117,6 +121,12 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
         byte[] data = ipv4PacketReceived.getPayload();
+
+        if(ipv4Packet.getSourceIpv4().toString().equals(coordinator.toString()))
+        {
+            LOG.info(" Coordinator mDNS packets recieved");
+            return;
+        }
 
         LOG.info("IP Protocol of recieved Packet is : " + ipv4Packet.getProtocol().toString());
         //check for UDP packet

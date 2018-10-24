@@ -39,7 +39,7 @@ public class UrlNotificationHandler implements UrlNotificationListener {
     @Override
     public void onDiscoveryUrlNotification(DiscoveryUrlNotification notification) {
         System.out.println("Evalaute coordinator device");
-        opcua_server_Address = Ipv4Address.getDefaultInstance("10.0.0.1");
+        opcua_server_Address = notification.getSrcIPAddress();
         publishCoordinator(opcua_server_Address);
     }
 

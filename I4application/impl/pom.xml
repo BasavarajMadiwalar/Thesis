@@ -76,6 +76,12 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
       <version>${l2switch.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.opendaylight.l2switch.arphandler</groupId>
+      <artifactId>arphandler-impl</artifactId>
+      <version>${l2switch.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>org.opendaylight.mdsal</groupId>
       <artifactId>mdsal-binding-api</artifactId>
       <version>2.1.2-Boron-SR2</version>

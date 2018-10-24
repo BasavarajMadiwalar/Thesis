@@ -22,26 +22,31 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <bundle>mvn:org.opendaylight.I4application/I4application-api/{{VERSION}}</bundle>
   </feature>
+
   <feature name='odl-I4application' version='${project.version}' description='OpenDaylight :: I4application'>
     <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
     <feature version='${project.version}'>odl-I4application-api</feature>
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <feature version="${openflow.plugin.version}">odl-openflowplugin-flow-services</feature>
     <feature version="${l2switch.version}">odl-l2switch-addresstracker</feature>
+    <feature version="${l2switch.version}">odl-l2switch-arphandler</feature>
     <bundle>mvn:org.opendaylight.l2switch.packethandler/packethandler-model/{{VERSION}}</bundle>
     <bundle>mvn:org.opendaylight.controller.thirdparty/net.sf.jung2/2.0.1</bundle>
     <bundle>mvn:org.opendaylight.I4application/I4application-impl/{{VERSION}}</bundle>
   </feature>
+
   <feature name='odl-I4application-rest' version='${project.version}' description='OpenDaylight :: I4application :: REST'>
     <feature version="${project.version}">odl-I4application</feature>
     <feature version="${restconf.version}">odl-restconf</feature>
   </feature>
+
   <feature name='odl-I4application-ui' version='${project.version}' description='OpenDaylight :: I4application :: UI'>
     <feature version="${project.version}">odl-I4application-rest</feature>
     <feature version="${restconf.version}">odl-mdsal-apidocs</feature>
     <feature version="${mdsal.version}">odl-mdsal-xsql</feature>
     <feature version="${dlux.version}">odl-dlux-yangui</feature>
   </feature>
+
   <feature name='odl-I4application-cli' version='${project.version}' description='OpenDaylight :: I4application :: CLI'>
     <feature version="${project.version}">odl-I4application</feature>
     <bundle>mvn:org.opendaylight.I4application/I4application-cli/{{VERSION}}</bundle>

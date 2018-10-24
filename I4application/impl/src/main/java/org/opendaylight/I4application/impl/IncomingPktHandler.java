@@ -17,16 +17,19 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.e
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.ipv4.packet.received.packet.chain.packet.Ipv4Packet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class IncomingPktHandler implements Ipv4PacketListener {
+    private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.IncomingPktHandler.class);
 
     private NotificationService notificationService;
 
     private Ipv4Address dstIpAddr = null;
     private Ipv4Address srcIpAddr = null;
-    private String multiCastAddr = "224.0.0.251";
+    private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
     private FlowManager flowManager;
 
     public IncomingPktHandler(NotificationService notificationService, FlowManager flowManager) {
@@ -38,21 +41,37 @@ public class IncomingPktHandler implements Ipv4PacketListener {
 
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
+        LOG.info("Incoming Packet Handler recvied notification");
         processPacket(notification);
     }
 
     public void processPacket(Ipv4PacketReceived ipv4PacketReceived){
+        LOG.info("Process Incoming Packet");
+
         List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
         EthernetPacket ethernetPacket = (EthernetPacket) packetChainList.get(packetChainList.size() - 2).getPacket();
 
         dstIpAddr = ipv4Packet.getDestinationIpv4();
-        //System.out.println("Dst IP address is: " + dstIpAddr.getValue());
 
-        if (dstIpAddr.getValue().toString() == "224.0.0.251" || ipv4Packet.getProtocol().toString() == "Icmp" ){
-            System.out.println("Ignore ICMP and mDNS packets");
+//        if (ipv4Packet.getProtocol().toString() == "Icmp" ){
+//            System.out.println("Ignore ICMP packets");
+//            return;
+//        }
+
+        if(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString())){
+            LOG.debug("Recieved mDNS packet destination IP Address: " + ipv4Packet.getDestinationIpv4().toString());
             return;
         }
+
+        if (ipv4Packet.getProtocol().toString().equals("Igmp")){
+            LOG.debug("Recieved IGMP packet destination IP Address: " + ipv4Packet.getDestinationIpv4().toString());
+            return;
+        }
+
+//        System.out.println("Source IP Address: " + ipv4Packet.getSourceIpv4().toString() + " Destination Ip: " + ipv4Packet.getDestinationIpv4());
+//        System.out.println("The packet in reason: " + ipv4Packet.getProtocol().toString());
+
         MacAddress srcMac = ethernetPacket.getSourceMac();
         MacAddress dstMac = ethernetPacket.getDestinationMac();
 
