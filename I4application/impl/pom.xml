@@ -81,6 +81,84 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
       <version>${l2switch.version}</version>
     </dependency>
 
+
+    <!-- Testing qpid -->
+    <dependency>
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>proton-j</artifactId>
+      <version>0.29.0</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-buffer</artifactId>
+      <version>LATEST</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-common</artifactId>
+      <version>LATEST</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-handler</artifactId>
+      <version>LATEST</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-transport</artifactId>
+      <version>LATEST</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-transport-native-epoll</artifactId>
+      <classifier>linux-x86_64</classifier>
+      <version>LATEST</version>
+    </dependency>
+
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-codec-http</artifactId>
+      <version>LATEST</version>
+    </dependency>
+
+
+    <!-- Make sure to add this dependency to features as qpid jms
+     InitialContextFactory requires qpid jms to be installed first
+    <dependency>
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>qpid-amqp-1-0-client-jms</artifactId>
+      <version>0.24</version>
+    </dependency>
+    <dependency>
+
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>qpid-jms-discovery</artifactId>
+      <version>0.38.0-SNAPSHOT</version>
+    </dependency> -->
+    <!-- Make sure to add this dependency to features as jms service
+        should be installed before using it's service -->
+    <dependency>
+      <groupId>org.apache.geronimo.specs</groupId>
+      <artifactId>geronimo-jms_1.1_spec</artifactId>
+      <version>1.1.1</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>qpid-amqp-1-0-client-jms</artifactId>
+      <version>0.24</version>
+    </dependency>
+    <dependency>
+      <groupId>de.dentrassi.kura.amqp</groupId>
+      <artifactId>de.dentrassi.kura.apache.qpid.jms.client</artifactId>
+      <version>0.0.2</version>
+    </dependency>
+
     <dependency>
       <groupId>org.opendaylight.mdsal</groupId>
       <artifactId>mdsal-binding-api</artifactId>

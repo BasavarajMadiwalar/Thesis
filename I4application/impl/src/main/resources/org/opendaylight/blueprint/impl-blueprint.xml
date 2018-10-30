@@ -19,8 +19,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <odl:rpc-service id="salFlowService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService"/>
   <odl:rpc-service id="salGroupService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.SalGroupService"/>
   <odl:rpc-service id="PacketProcessingService" interface="org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService"/>
-
-
+  
   <bean id="provider"
     class="org.opendaylight.I4application.impl.I4applicationProvider"
     init-method="init" destroy-method="close">
