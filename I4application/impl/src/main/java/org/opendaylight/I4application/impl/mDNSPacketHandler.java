@@ -87,8 +87,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         Ipv4Address opcua_server = notification.getOpcuaServerAddress();
         Ipv4Address coordinator = notification.getCoOrdinatorAddress();
 
-        System.out.println("IP addres pain in mDNS pkthandler " + opcua_server.toString() + " and " + coordinator.toString());
-
         flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
         if (flowsetupResult){
             CompletableFuture.runAsync(()->sendPacketOut(opcua_server, coordinator));
@@ -97,20 +95,20 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
 
     public void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
-
         ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
         int packetcount = packetList.size();
-        System.out.println("Packet Count is : " + packetcount);
+
         if (packetList != null){
             for (byte[] packet: packetList){
                 boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
                 if (result) packetcount--;
             }
         }
+
         if (packetcount != 0){
             LOG.debug("Packet out failed");
         };
-        LOG.info("mDNS Packet out success");
+        LOG.debug("mDNS Packet out success");
     }
 
     public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
@@ -240,7 +238,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             DiscoveryUrlNotification discoveryUrlNotification = new DiscoveryUrlNotificationBuilder()
                             .setSrcIPAddress(srcIPaddr).setDiscoveryUrl(url).build();
             notificationProvider.offerNotification(discoveryUrlNotification);
-            System.out.println("The IP Address is: " + urlRecord.get(srcIPaddr));
+            //System.out.println("opc-ua server url" + urlRecord.get(srcIPaddr));
         }
     }
 }

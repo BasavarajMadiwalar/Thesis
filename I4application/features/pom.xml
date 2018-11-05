@@ -64,6 +64,8 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
     </dependencies>
   </dependencyManagement>
 
+
+
   <dependencies>
     <dependency>
       <groupId>org.opendaylight.yangtools</groupId>
@@ -86,12 +88,6 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <artifactId>features-mdsal</artifactId>
       <classifier>features</classifier>
       <type>xml</type>
-      <scope>runtime</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.karaf.jms</groupId>
-      <artifactId>org.apache.karaf.jms.core</artifactId>
-      <version>3.0.5</version>
       <scope>runtime</scope>
     </dependency>
 
@@ -119,10 +115,11 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
       <scope>runtime</scope>
     </dependency>
     <dependency>
-      <groupId>org.apache.karaf.jms</groupId>
-      <artifactId>jms</artifactId>
-      <version>3.0.7</version>
-      <type>pom</type>
+      <groupId>org.apache.qpid</groupId>
+      <artifactId>qpid-amqp-1-0-client-jms</artifactId>
+      <version>0.24</version>
+      <type>maven-plugin</type>
+      <scope>runtime</scope>
     </dependency>
     <dependency>
       <groupId>org.opendaylight.l2switch</groupId>

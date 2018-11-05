@@ -118,8 +118,6 @@ public class FlowManager {
             dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
 
             path = FindPath(srcNodeId, dstNodeId);
-            System.out.println("Path between " + srcNodeId.toString() + " and " +  dstNodeId.toString());
-            System.out.println("Links are: ");
             for(Link link: path){
                 System.out.println(link);
             }
