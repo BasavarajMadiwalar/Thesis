@@ -81,6 +81,25 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
       <version>${l2switch.version}</version>
     </dependency>
 
+    <!-- Dependency for Json to Map convertion -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-core</artifactId>
+      <version>2.3.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-annotations</artifactId>
+      <version>2.3.2</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>2.3.2</version>
+    </dependency>
+
     <!-- Make sure to add this dependency to features as qpid jms
      InitialContextFactory requires qpid jms to be installed first
     <dependency>

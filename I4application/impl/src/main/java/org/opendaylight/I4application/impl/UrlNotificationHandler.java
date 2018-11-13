@@ -8,6 +8,10 @@
 
 package org.opendaylight.I4application.impl;
 
+import com.fasterxml.jackson.core.JsonGenerationException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
@@ -22,6 +26,8 @@ import org.slf4j.LoggerFactory;
 
 import javax.jms.*;
 import javax.naming.NamingException;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 
@@ -40,17 +46,8 @@ public class UrlNotificationHandler implements UrlNotificationListener {
     //private Ipv4Address coordinatorAddress = Ipv4Address.getDefaultInstance("10.0.0.3");
     private Ipv4Address opcua_server_Address;
     public HashMap<String, Ipv4Address> ipRecord = new HashMap<String, Ipv4Address>();
-    public ArrayList<Ipv4Address> gripperList = new ArrayList<Ipv4Address>(){{
-       add(Ipv4Address.getDefaultInstance("10.0.0.3"));
-    }};
 
-    public ArrayList<Ipv4Address> conveyerList = new ArrayList<Ipv4Address>(){{
-        add(Ipv4Address.getDefaultInstance("10.0.0.4"));
-    }};
-    public HashMap<String, ArrayList<Ipv4Address>> skillMap = new HashMap<String, ArrayList<Ipv4Address>>(){{
-        put("Gripper", gripperList);
-        put("Conveyer", conveyerList);
-    }};
+    public HashMap<String, ArrayList<Ipv4Address>> skillMap = null;
 
     private Session session;
     private MessageProducer messageProducer;
@@ -70,6 +67,14 @@ public class UrlNotificationHandler implements UrlNotificationListener {
         } catch (NamingException e) {
             e.printStackTrace();
         } catch (JMSException e) {
+            e.printStackTrace();
+        }
+
+        try {
+            JsontoHashMap();
+        } catch (JsonGenerationException e) {
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
             e.printStackTrace();
         }
     }
@@ -93,6 +98,22 @@ public class UrlNotificationHandler implements UrlNotificationListener {
         messageConsumer = session.createConsumer(temporaryQueue);
         amqpMessageListener amqpMessageListener = new amqpMessageListener();
         messageConsumer.setMessageListener(amqpMessageListener);
+    }
+
+    public void JsontoHashMap() throws JsonGenerationException, JsonMappingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        HashMap<String, ArrayList<Ipv4Address>> mapObject = null;
+        File jsonskillmap = new File("/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/skillmap.json");
+
+        try {
+             skillMap = objectMapper.readValue(jsonskillmap,
+                    new TypeReference<HashMap<String, ArrayList<Ipv4Address>>>() {
+                    });
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     public void publishUrl(DiscoveryUrlNotification notification) throws JMSException {
@@ -135,7 +156,6 @@ public class UrlNotificationHandler implements UrlNotificationListener {
             notificationPublishService.offerNotification(coOrdinatorIdentified);
         }
     }
-
 
     /**
      * Used to listen for the messages from Activemq queue
