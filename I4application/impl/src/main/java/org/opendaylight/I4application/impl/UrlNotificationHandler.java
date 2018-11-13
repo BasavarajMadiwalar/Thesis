@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jms.*;
 import javax.naming.NamingException;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 public class UrlNotificationHandler implements UrlNotificationListener {
@@ -36,9 +37,20 @@ public class UrlNotificationHandler implements UrlNotificationListener {
     private NotificationService notificationService;
     private NotificationPublishService notificationPublishService;
 
-    private Ipv4Address coordinatorAddress = Ipv4Address.getDefaultInstance("10.0.0.3");
+    //private Ipv4Address coordinatorAddress = Ipv4Address.getDefaultInstance("10.0.0.3");
     private Ipv4Address opcua_server_Address;
     public HashMap<String, Ipv4Address> ipRecord = new HashMap<String, Ipv4Address>();
+    public ArrayList<Ipv4Address> gripperList = new ArrayList<Ipv4Address>(){{
+       add(Ipv4Address.getDefaultInstance("10.0.0.3"));
+    }};
+
+    public ArrayList<Ipv4Address> conveyerList = new ArrayList<Ipv4Address>(){{
+        add(Ipv4Address.getDefaultInstance("10.0.0.3"));
+    }};
+    public HashMap<String, ArrayList<Ipv4Address>> skillMap = new HashMap<String, ArrayList<Ipv4Address>>(){{
+        put("Gripper", gripperList);
+        put("Conveyer", conveyerList);
+    }};
 
     private Session session;
     private MessageProducer messageProducer;
@@ -60,7 +72,6 @@ public class UrlNotificationHandler implements UrlNotificationListener {
         } catch (JMSException e) {
             e.printStackTrace();
         }
-
     }
 
     public void setJMSclient() throws NamingException, JMSException {
@@ -113,34 +124,41 @@ public class UrlNotificationHandler implements UrlNotificationListener {
         } catch (JMSException e) {
             e.printStackTrace();
         }
-        //publishCoordinator(opcua_server_Address);
     }
 
-    public void publishCoordinator(Ipv4Address server_Address){
-        CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
+    public void publishCoordinator(Ipv4Address server_Address, String skill){
+
+        ArrayList<Ipv4Address> addrList = skillMap.get(skill);
+        for (Ipv4Address coordinatorAddress : addrList){
+            CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
                     .setCoOrdinatorAddress(coordinatorAddress).setOpcuaServerAddress(server_Address).build();
-        System.out.println("Identified Coordinator: " + coordinatorAddress);
-        notificationPublishService.offerNotification(coOrdinatorIdentified);
+            notificationPublishService.offerNotification(coOrdinatorIdentified);
+        }
     }
+
+
+    /**
+     * Used to listen for the messages from Activemq queue
+     */
 
     public class amqpMessageListener implements MessageListener {
         Byte[] bytes = null;
-        String Ip_Addr = null;
+        String Skill;
         Ipv4Address opc_ser_Addr = null;
         @Override
         public void onMessage(Message message) {
-            System.out.println("Received Message from Queue");
+            Skill = null;
+            opc_ser_Addr = null;
             org.apache.qpid.amqp_1_0.jms.MapMessage recievedMessage = (org.apache.qpid.amqp_1_0.jms.MapMessage) message;
             HashMap<String, String> mapMessage = null;
             try {
-                System.out.println("Recieved Skill " + recievedMessage.get("Skill"));
                 String IP_Addr = recievedMessage.getObject("IPAddr").toString();
                 opc_ser_Addr = ipRecord.get(IP_Addr);
-                System.out.println("Server Ip Address: " + opc_ser_Addr);
+                Skill = recievedMessage.get("Skill").toString();
             } catch (JMSException e) {
                 e.printStackTrace();
             }
-            UrlNotificationHandler.this.publishCoordinator(opc_ser_Addr);
+            UrlNotificationHandler.this.publishCoordinator(opc_ser_Addr,Skill);
         }
     }
 }

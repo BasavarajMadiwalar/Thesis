@@ -26,17 +26,22 @@ public class IncomingPktHandler implements Ipv4PacketListener {
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.IncomingPktHandler.class);
 
     private NotificationService notificationService;
+    private PacketDispatcher packetDispatcher;
 
+    private Ipv4Address opcua_client = Ipv4Address.getDefaultInstance("10.0.0.200");
     private Ipv4Address dstIpAddr = null;
     private Ipv4Address srcIpAddr = null;
     private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
     private FlowManager flowManager;
 
-    public IncomingPktHandler(NotificationService notificationService, FlowManager flowManager) {
+    public IncomingPktHandler(NotificationService notificationService
+                                , FlowManager flowManager
+                                , PacketDispatcher packetDispatcher) {
         // Register this class to MD-SAL notification service
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
         this.flowManager = flowManager;
+        this.packetDispatcher = packetDispatcher;
     }
 
     @Override
@@ -51,13 +56,9 @@ public class IncomingPktHandler implements Ipv4PacketListener {
         List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
         EthernetPacket ethernetPacket = (EthernetPacket) packetChainList.get(packetChainList.size() - 2).getPacket();
+        byte[] payload = ipv4PacketReceived.getPayload();
 
         dstIpAddr = ipv4Packet.getDestinationIpv4();
-
-//        if (ipv4Packet.getProtocol().toString() == "Icmp" ){
-//            System.out.println("Ignore ICMP packets");
-//            return;
-//        }
 
         if(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString())){
             LOG.debug("Recieved mDNS packet destination IP Address: " + ipv4Packet.getDestinationIpv4().toString());
@@ -69,13 +70,21 @@ public class IncomingPktHandler implements Ipv4PacketListener {
             return;
         }
 
-//        System.out.println("Source IP Address: " + ipv4Packet.getSourceIpv4().toString() + " Destination Ip: " + ipv4Packet.getDestinationIpv4());
-//        System.out.println("The packet in reason: " + ipv4Packet.getProtocol().toString());
-
         MacAddress srcMac = ethernetPacket.getSourceMac();
         MacAddress dstMac = ethernetPacket.getDestinationMac();
 
         srcIpAddr = ipv4Packet.getSourceIpv4();
+
+
+        if (srcIpAddr.toString().equals(opcua_client.toString())
+                || dstIpAddr.toString().equals(opcua_client.toString())){
+            //Send packet out using packet dispatcher
+            boolean result = packetDispatcher.dispatchPacket(payload, srcIpAddr, dstIpAddr);
+            if (result){
+                return;
+            }
+            return;
+        }
 
         if (srcMac != null && dstMac != null
                 && dstIpAddr !=null && srcIpAddr !=null){

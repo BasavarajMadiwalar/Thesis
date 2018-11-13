@@ -60,8 +60,8 @@ public class FlowManager {
         List<Link> revPath = null;
         NodeId srcNodeId, dstNodeId;
         boolean forwardPath;
-        // Use the srcIP and dstIP and get NodeConnector and Node from Host Manager
 
+        // Use the srcIP, dstIP and get NodeConnector and Node from Host Manager
         NodeConnector srcNodeConn = hostManager.getIpNodeConnector(srcIP);
         NodeConnector dstNodeConn = hostManager.getIpNodeConnector(dstIP);
 
@@ -83,7 +83,6 @@ public class FlowManager {
                         //flowWriter.addE2Epathflow(dstIP,srcIP,dstMAC,srcMAC,dstNode,srcNode,dstNodeConn,srcNodeConn,revPath);
                         flowWriter.addFlowToPathNodes(dstIP, dstMAC,srcIP, srcMAC, dstNode, revPath);
                     }
-
                 }
             }else {
                 System.out.println("Could not find the route");
@@ -118,9 +117,6 @@ public class FlowManager {
             dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
 
             path = FindPath(srcNodeId, dstNodeId);
-            for(Link link: path){
-                System.out.println(link);
-            }
 
             if(path != null){
                 LOG.info("Shortest Path found");

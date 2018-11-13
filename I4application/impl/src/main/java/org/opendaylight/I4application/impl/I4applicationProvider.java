@@ -92,8 +92,13 @@ public class I4applicationProvider {
         /**
          * Create InComingPktHandler - Handle non-mDNS packets, non ICMP packets
          */
-        IncomingPktHandler incomingPktHandler = new IncomingPktHandler(notificationService, flowManager);
+        IncomingPktHandler incomingPktHandler = new IncomingPktHandler(notificationService, flowManager, packetDispatcher);
         LOG.info("Imcoming Packet Handler is instantiated");
+
+        /**
+         * Create arp Packet Handler - Handle Arp packets from to opcuaclient
+         */
+        ArpPacketHandler arpPacketHandler = new ArpPacketHandler(packetDispatcher, notificationService);
 
         /**
          * Create an Instance of mDNSPacket Handler

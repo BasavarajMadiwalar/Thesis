@@ -34,18 +34,20 @@ public class PacketDispatcher {
 
 
     public boolean dispatchmDNSPacket(byte[] payload, Ipv4Address srcIP, Ipv4Address dstIP){
-
-        NodeConnectorRef srdNCRef = hostManager.getIpNodeConnectorRef(srcIP);
+        LOG.debug("DispatchmDNS packet");
+        NodeConnectorRef srcNCRef = hostManager.getIpNodeConnectorRef(srcIP);
         NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
 
-        if (srdNCRef != null && dstNCRef != null){
-            return sendmDNSPacketOut(payload, srdNCRef, dstNCRef);
+        if (srcNCRef != null && dstNCRef != null){
+            return sendmDNSPacketOut(payload, srcNCRef, dstNCRef);
         }
         return false;
     }
 
     public boolean sendmDNSPacketOut(byte[] payload,
                                      NodeConnectorRef srcNCRef, NodeConnectorRef dstNCRef){
+        LOG.debug("Sending mDNS Packets out");
+
         if (srcNCRef == null || dstNCRef == null){
             return false;
         }
@@ -61,4 +63,31 @@ public class PacketDispatcher {
         return true;
     }
 
+    public boolean dispatchPacket(byte[] payload, Ipv4Address scrIP, Ipv4Address dstIP){
+        LOG.info("Dispatch IP Packets");
+        NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
+        if (dstNCRef == null){
+            LOG.debug("Could not find an entry for:" + dstIP);
+        }
+
+        if (dstNCRef != null){
+            return sendPacketOut(payload, dstNCRef);
+        }
+        return false;
+    }
+
+    public boolean sendPacketOut(byte[] payload, NodeConnectorRef dstNCRef){
+
+        LOG.debug("Sending general Packet out");
+
+        InstanceIdentifier<Node> egressNode = InstanceIdentifierUtils.generateNodeInstanceIdentifier(dstNCRef);
+
+        TransmitPacketInput transmitPacketInput = new TransmitPacketInputBuilder()
+                .setPayload(payload)
+                .setNode(new NodeRef(egressNode))
+                .setEgress(dstNCRef)
+                .build();
+        packetProcessingService.transmitPacket(transmitPacketInput);
+        return true;
+    }
 }
