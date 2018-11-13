@@ -10,9 +10,6 @@ package org.opendaylight.I4application.impl;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.opendaylight.I4application.impl.flow.FlowManager;
-import org.opendaylight.I4application.impl.utils.BitBufferHelper;
-import org.opendaylight.I4application.impl.utils.BufferException;
-import org.opendaylight.I4application.impl.utils.NetUtils;
 import org.opendaylight.I4application.impl.utils.PacketParsingUtils;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
@@ -44,18 +41,19 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private FlowManager flowManager;
     private PacketDispatcher packetDispatcher;
     private Ipv4Address coordinator = Ipv4Address.getDefaultInstance("10.0.0.3");
+    private Ipv4Address coordinator1 = Ipv4Address.getDefaultInstance("10.0.0.4");
+    private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
 
     // Data Structure for bufering mDNS packets and url details.
     public ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>
             mDNSPackets = new ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>();
 
-
-
     private static Queue<ImmutablePair<Ipv4Packet, byte[]>> queue = new ConcurrentLinkedQueue<ImmutablePair<Ipv4Packet, byte[]>>();
     private static ConcurrentHashMap<Ipv4Address, String> urlRecord = new ConcurrentHashMap<Ipv4Address, String>();
 
 
-    ExecutorService mDNSPacketExecutor = Executors.newSingleThreadExecutor();
+    //ExecutorService mDNSPacketExecutor = Executors.newSingleThreadExecutor();
+    ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
     mDNSPacketBuffer mDNSPacketBufferThrd = new mDNSPacketBuffer(mDNSPackets, queue, urlRecord);
     mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(mDNSPackets);
     private NotificationPublishService notificationProvider;
@@ -77,6 +75,50 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         checkUDPacket(notification);
     }
 
+    public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
+
+        int srcport = 0;
+
+        //Find the latest packet in the packet-chain, which is an IPv4Packet
+        List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
+        Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
+        byte[] data = ipv4PacketReceived.getPayload();
+
+        if(ipv4Packet.getSourceIpv4().toString().equals(coordinator.toString())
+                || ipv4Packet.getSourceIpv4().toString().equals(coordinator1.toString()))
+        {
+            LOG.info(" Coordinator mDNS packets recieved");
+            return;
+        }
+
+//        //check for UDP packet
+//        if (!(ipv4Packet.getProtocol().toString() == UDP_PROTOCOL)){
+//            LOG.info("Non UDP packet in mDNS Packet Handler, ignore packet");
+//            return;
+//        }
+//
+//        int bitoffset = ipv4Packet.getPayloadOffset() * NetUtils.NumBitsInAByte;
+//        try {
+//            srcport = BitBufferHelper.getInt(BitBufferHelper.getBits(data, bitoffset, 16));
+//        }catch (BufferException e){
+//            LOG.debug("Could not find src port {}", e.getMessage());
+//        }
+
+
+        if (!(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString()))){
+            LOG.debug("non MDNS Packet Received");
+            return;
+        }
+
+
+        try {
+            queue.add(new ImmutablePair<>(ipv4Packet,data));
+        }catch (Exception e){
+            LOG.debug("Could not add Packet to mDNSPacketsQueue");
+        }
+        mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
+    }
+
 
     @Override
     public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
@@ -93,11 +135,10 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
     }
 
-
     public void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
         ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
         int packetcount = packetList.size();
-
+        System.out.println("Packet Count is: " + packetcount);
         if (packetList != null){
             for (byte[] packet: packetList){
                 boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
@@ -106,51 +147,10 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
 
         if (packetcount != 0){
+            System.out.println("Packet Out failed");;
             LOG.debug("Packet out failed");
         };
         LOG.debug("mDNS Packet out success");
-    }
-
-    public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
-
-        int srcport = 0;
-
-        //Find the latest packet in the packet-chain, which is an IPv4Packet
-        List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
-        Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
-        byte[] data = ipv4PacketReceived.getPayload();
-
-        if(ipv4Packet.getSourceIpv4().toString().equals(coordinator.toString()))
-        {
-            LOG.info(" Coordinator mDNS packets recieved");
-            return;
-        }
-
-        LOG.info("IP Protocol of recieved Packet is : " + ipv4Packet.getProtocol().toString());
-        //check for UDP packet
-        if (!(ipv4Packet.getProtocol().toString() == UDP_PROTOCOL)){
-            LOG.info("Non UDP packet in mDNS Packet Handler, ignore packet");
-            return;
-        }
-
-        int bitoffset = ipv4Packet.getPayloadOffset() * NetUtils.NumBitsInAByte;
-        try {
-            srcport = BitBufferHelper.getInt(BitBufferHelper.getBits(data, bitoffset, 16));
-        }catch (BufferException e){
-            LOG.debug("Could not find src port {}", e.getMessage());
-        }
-
-        if (srcport != MDNS_SRC_PORT){
-            LOG.info("non MDNS packet Recieved");
-            return;
-        }
-
-        try {
-            queue.add(new ImmutablePair<>(ipv4Packet,data));
-        }catch (Exception e){
-            LOG.debug("Could not add Packet to mDNSPacketsQueue");
-        }
-        mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
     }
 
 

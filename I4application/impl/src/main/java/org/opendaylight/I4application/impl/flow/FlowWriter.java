@@ -158,7 +158,7 @@ public class FlowWriter {
         if (!srcNode.getId().equals(dstNode.getId())){
             boolean dstNodeFlow = addFlowtoNode(dstIP, dstMac, dstNCRef);
             if (srcNodeflow == true && dstNodeFlow == true){
-                System.out.println("Rule created");
+                System.out.println("Rule created for " + srcIP + "and" + dstIP);
                 addFlowToPathNodes(srcIP,srcMac,dstIP,dstMac, srcNode, path);
             }
         }
@@ -628,7 +628,7 @@ public class FlowWriter {
         try {
             future.get();
         } catch (InterruptedException e) {
-            System.out.println("InterruptedException Occured");
+            System.out.println("InterruptedException occurred");
             e.printStackTrace();
         } catch (ExecutionException e) {
             System.out.println("could not add group");

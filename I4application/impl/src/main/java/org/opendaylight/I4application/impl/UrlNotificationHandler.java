@@ -45,7 +45,7 @@ public class UrlNotificationHandler implements UrlNotificationListener {
     }};
 
     public ArrayList<Ipv4Address> conveyerList = new ArrayList<Ipv4Address>(){{
-        add(Ipv4Address.getDefaultInstance("10.0.0.3"));
+        add(Ipv4Address.getDefaultInstance("10.0.0.4"));
     }};
     public HashMap<String, ArrayList<Ipv4Address>> skillMap = new HashMap<String, ArrayList<Ipv4Address>>(){{
         put("Gripper", gripperList);
