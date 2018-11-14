@@ -31,7 +31,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html INTERNAL
     <restconf.version>1.4.2-Boron-SR2</restconf.version>
     <yangtools.version>1.0.2-Boron-SR2</yangtools.version>
     <dlux.version>0.4.2-Boron-SR2</dlux.version>
-    <l2switch.version>0.4.2-Boron-SR2</l2switch.version>
+    <l2switch.version>0.4.5-SNAPSHOT</l2switch.version>
     <openflow.plugin.version>0.3.2-Boron-SR2</openflow.plugin.version>
     <configfile.directory>etc/opendaylight/karaf</configfile.directory>
     <model-inventory.version>1.4.2-Boron-SR2</model-inventory.version>

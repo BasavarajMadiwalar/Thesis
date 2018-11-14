@@ -24,7 +24,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
 
   <properties>
     <openflow.plugin.version>0.3.2-Boron-SR2</openflow.plugin.version>
-    <l2switch.version>0.4.2-Boron-SR2</l2switch.version>
+    <l2switch.version>0.4.5-SNAPSHOT</l2switch.version>
     <mdsal.version>1.4.2-Boron-SR2</mdsal.version>
     <jung2.version>2.1.1</jung2.version>
   </properties>
