@@ -47,7 +47,7 @@ public class UrlNotificationHandler implements UrlNotificationListener {
     private Ipv4Address opcua_server_Address;
     public HashMap<String, Ipv4Address> ipRecord = new HashMap<String, Ipv4Address>();
 
-    public HashMap<String, ArrayList<Ipv4Address>> skillMap = null;
+    public HashMap<String, ArrayList<String>> skillMap = null;
 
     private Session session;
     private MessageProducer messageProducer;
@@ -107,7 +107,7 @@ public class UrlNotificationHandler implements UrlNotificationListener {
 
         try {
              skillMap = objectMapper.readValue(jsonskillmap,
-                    new TypeReference<HashMap<String, ArrayList<Ipv4Address>>>() {
+                    new TypeReference<HashMap<String, ArrayList<String>>>() {
                     });
 
         } catch (IOException e) {
@@ -149,10 +149,10 @@ public class UrlNotificationHandler implements UrlNotificationListener {
 
     public void publishCoordinator(Ipv4Address server_Address, String skill){
 
-        ArrayList<Ipv4Address> addrList = skillMap.get(skill);
-        for (Ipv4Address coordinatorAddress : addrList){
+        ArrayList<String> addrList = skillMap.get(skill);
+        for (String coordinatorAddress : addrList){
             CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
-                    .setCoOrdinatorAddress(coordinatorAddress).setOpcuaServerAddress(server_Address).build();
+                    .setCoOrdinatorAddress(Ipv4Address.getDefaultInstance(coordinatorAddress)).setOpcuaServerAddress(server_Address).build();
             notificationPublishService.offerNotification(coOrdinatorIdentified);
         }
     }

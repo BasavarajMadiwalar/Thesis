@@ -36,9 +36,9 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <bundle dependency="true">wrap:mvn:org.apache.qpid/qpid-amqp-1-0-common/0.24</bundle>
     <bundle dependency="true">wrap:mvn:org.apache.qpid/qpid-amqp-1-0-client/0.24</bundle>
     <bundle dependency="true">wrap:mvn:org.apache.qpid/qpid-amqp-1-0-client-jms/0.24/$Bundle-SymbolicName=qpid-amqp-1-0-client-jms&amp;Bundle-Version=2.4</bundle>
-    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-annotations/2.3.2</bundle>
-    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-core/2.3.2</bundle>
-    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-databind/2.3.2</bundle>
+    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-annotations/2.8.11</bundle>
+    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-core/2.8.11</bundle>
+    <bundle dependency="true">wrap:mvn:com.fasterxml.jackson.core/jackson-databind/2.8.11.1</bundle>
     <bundle>mvn:org.opendaylight.l2switch.packethandler/packethandler-model/{{VERSION}}</bundle>
     <bundle>mvn:org.opendaylight.controller.thirdparty/net.sf.jung2/2.0.1</bundle>
   </feature>

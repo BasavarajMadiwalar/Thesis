@@ -78,7 +78,7 @@ public class IncomingPktHandler implements Ipv4PacketListener {
 
         if (srcIpAddr.toString().equals(opcua_client.toString())
                 || dstIpAddr.toString().equals(opcua_client.toString())){
-            //Send packet out using packet dispatcher
+            System.out.println("Received OPCUA client IPv4 Packet");
             boolean result = packetDispatcher.dispatchPacket(payload, srcIpAddr, dstIpAddr);
             if (result){
                 return;
