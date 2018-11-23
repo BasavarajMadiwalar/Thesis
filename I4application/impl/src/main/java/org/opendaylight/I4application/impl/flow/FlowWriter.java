@@ -315,7 +315,6 @@ public class FlowWriter {
                 .build())
                 .build();
 
-
         ApplyActions applyActions = new ApplyActionsBuilder().setAction(ImmutableList.of(outputaction)).build();
 
         // Add the applyaction into an Instruction
@@ -326,18 +325,14 @@ public class FlowWriter {
                                                         .build())
                                                 .build();
 
-        //Instructions instructions = new InstructionsBuilder()
-        //                                .setInstruction(ImmutableList.of(applyActionsInstruction)).build();
-
-        // Put our Instruction in a list of Instructions
-
+        // Put the created Instruction in a list of Instructions
         flowBuilder.setMatch(match)
                     .setInstructions(new InstructionsBuilder()
                     .setInstruction(ImmutableList.of(applyActionsInstruction))
                     .build())
                 .setPriority(1000)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(600)
+                .setHardTimeout(0)
                 .setIdleTimeout(600)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false, false, false, false, false));
@@ -369,7 +364,8 @@ public class FlowWriter {
         return true;
     }
 
-    /* Here Add Flow to SRC Node and Dst Node
+    /*
+    *  Here Add Flow to SRC Node and Dst Node
     * */
     public boolean addFlowtoNode(Ipv4Address srcIP, Ipv4Address dstIP,
                                  NodeConnectorRef dstNCref){
@@ -862,7 +858,7 @@ public class FlowWriter {
                     .build())
                 .setPriority(10)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(720)
+                .setHardTimeout(0)
                 .setIdleTimeout(720)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false,false,false,false,false));

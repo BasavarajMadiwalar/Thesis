@@ -44,9 +44,9 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private Ipv4Address coordinator1 = Ipv4Address.getDefaultInstance("10.0.0.4");
     private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
 
-    // Data Structure for bufering mDNS packets and url details.
     public ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>
             mDNSPackets = new ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>();
+
 
     private static Queue<ImmutablePair<Ipv4Packet, byte[]>> queue = new ConcurrentLinkedQueue<ImmutablePair<Ipv4Packet, byte[]>>();
     private static ConcurrentHashMap<Ipv4Address, String> urlRecord = new ConcurrentHashMap<Ipv4Address, String>();
@@ -70,7 +70,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
-        //System.out.println("Ipv4 Packet Recieved");
         LOG.info("Recieved an Ipv4 Packet");
         checkUDPacket(notification);
     }
@@ -84,32 +83,17 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
         byte[] data = ipv4PacketReceived.getPayload();
 
+        if (!(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString()))){
+            LOG.debug("not an MDNS Packet Received");
+            return;
+        }
+
         if(ipv4Packet.getSourceIpv4().toString().equals(coordinator.toString())
                 || ipv4Packet.getSourceIpv4().toString().equals(coordinator1.toString()))
         {
-            LOG.info(" Coordinator mDNS packets recieved");
+            LOG.info("Coordinator mDNS packets received");
             return;
         }
-
-//        //check for UDP packet
-//        if (!(ipv4Packet.getProtocol().toString() == UDP_PROTOCOL)){
-//            LOG.info("Non UDP packet in mDNS Packet Handler, ignore packet");
-//            return;
-//        }
-//
-//        int bitoffset = ipv4Packet.getPayloadOffset() * NetUtils.NumBitsInAByte;
-//        try {
-//            srcport = BitBufferHelper.getInt(BitBufferHelper.getBits(data, bitoffset, 16));
-//        }catch (BufferException e){
-//            LOG.debug("Could not find src port {}", e.getMessage());
-//        }
-
-
-        if (!(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString()))){
-            LOG.debug("non MDNS Packet Received");
-            return;
-        }
-
 
         try {
             queue.add(new ImmutablePair<>(ipv4Packet,data));
@@ -118,41 +102,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
         mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
     }
-
-
-    @Override
-    public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
-        LOG.info("Coordinator selection recieved");
-        System.out.println("Coordinator selection recieved");
-        Boolean flowsetupResult;
-
-        Ipv4Address opcua_server = notification.getOpcuaServerAddress();
-        Ipv4Address coordinator = notification.getCoOrdinatorAddress();
-
-        flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
-        if (flowsetupResult){
-            CompletableFuture.runAsync(()->sendPacketOut(opcua_server, coordinator));
-        }
-    }
-
-    public void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
-        ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
-        int packetcount = packetList.size();
-        System.out.println("Packet Count is: " + packetcount);
-        if (packetList != null){
-            for (byte[] packet: packetList){
-                boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
-                if (result) packetcount--;
-            }
-        }
-
-        if (packetcount != 0){
-            System.out.println("Packet Out failed");;
-            LOG.debug("Packet out failed");
-        };
-        LOG.debug("mDNS Packet out success");
-    }
-
 
     class mDNSPacketBuffer implements Runnable {
         Ipv4Packet mDNSPacket = null;
@@ -172,6 +121,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
         //HashMap<String, ArrayList<byte[]>> ipPacketMap = new HashMap<String, ArrayList<byte[]>>();
         ArrayList<byte[]> oldlist = new ArrayList<byte[]>();
+        Queue<byte[]> newQueue = new ConcurrentLinkedQueue<>();
 
         public mDNSPacketBuffer(ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>> mDNSPackets,
                                  Queue<ImmutablePair<Ipv4Packet, byte[]>> blockingQueue,
@@ -199,6 +149,8 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
             if(!(mDNSPacketsMap.containsKey(mDNSPacket.getSourceIpv4()))){
                 LOG.info("Adding IP address to Map" + mDNSPacket.getSourceIpv4().getValue());
+                //mDNSPacketsMap.put(mDNSPacket.getSourceIpv4(), new ArrayList<>(Arrays.asList(packetPayload)));
+
                 mDNSPacketsMap.put(mDNSPacket.getSourceIpv4(), new ArrayList<>(Arrays.asList(packetPayload)));
             }else{
                 try {
@@ -211,9 +163,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             }
             // check for SRV Record using Future
             CompletableFuture.runAsync(()->SRVRecHandler(mDNSPacket, mDNSPayload), srvRecordExecutor);
-//            for(Map.Entry me:mDNSPacketsMap.entrySet()){
-//                System.out.println("Key: " + me.getKey() +" & value length is : " + me.getValue());
-//            }
         }
 
         public void SRVRecHandler(Ipv4Packet ipv4Packet, byte[] mDNSPayload){
@@ -238,7 +187,39 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             DiscoveryUrlNotification discoveryUrlNotification = new DiscoveryUrlNotificationBuilder()
                             .setSrcIPAddress(srcIPaddr).setDiscoveryUrl(url).build();
             notificationProvider.offerNotification(discoveryUrlNotification);
-            //System.out.println("opc-ua server url" + urlRecord.get(srcIPaddr));
         }
+    }
+
+
+    @Override
+    public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
+        LOG.info("Coordinator selection recieved");
+        Boolean flowsetupResult;
+
+        Ipv4Address opcua_server = notification.getOpcuaServerAddress();
+        Ipv4Address coordinator = notification.getCoOrdinatorAddress();
+
+        flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
+        if (flowsetupResult){
+            CompletableFuture.runAsync(()->sendPacketOut(opcua_server, coordinator));
+        }
+    }
+
+    public void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
+        ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
+        int packetcount = packetList.size();
+        System.out.println("Packet Count is: " + packetcount);
+        if (packetList != null){
+            for (byte[] packet:packetList){
+                boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
+                if (result) packetcount--;
+            }
+        }
+
+        if (packetcount != 0){
+            LOG.debug("Packet out failed");
+        }
+        LOG.debug("mDNS Packet out success");
+        mDNSPackets.remove(opcuaServer);
     }
 }

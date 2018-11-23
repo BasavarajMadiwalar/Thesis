@@ -27,12 +27,13 @@ public class IncomingPktHandler implements Ipv4PacketListener {
 
     private NotificationService notificationService;
     private PacketDispatcher packetDispatcher;
+    private FlowManager flowManager;
 
     private Ipv4Address opcua_client = Ipv4Address.getDefaultInstance("10.0.0.200");
     private Ipv4Address dstIpAddr = null;
     private Ipv4Address srcIpAddr = null;
     private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
-    private FlowManager flowManager;
+    private boolean rulecreated;
 
     public IncomingPktHandler(NotificationService notificationService
                                 , FlowManager flowManager
@@ -78,7 +79,6 @@ public class IncomingPktHandler implements Ipv4PacketListener {
 
         if (srcIpAddr.toString().equals(opcua_client.toString())
                 || dstIpAddr.toString().equals(opcua_client.toString())){
-            System.out.println("Received OPCUA client IPv4 Packet");
             boolean result = packetDispatcher.dispatchPacket(payload, srcIpAddr, dstIpAddr);
             if (result){
                 return;
@@ -86,10 +86,14 @@ public class IncomingPktHandler implements Ipv4PacketListener {
             return;
         }
 
-        if (srcMac != null && dstMac != null
-                && dstIpAddr !=null && srcIpAddr !=null){
-            // Send Packet to Flow Creator to create flow.
-            flowManager.handleIpPacket(srcIpAddr, srcMac, dstIpAddr, dstMac);
+        if (srcMac == null || dstMac == null
+                || dstIpAddr == null || srcIpAddr ==null){
+            return;
+        }
+        //Create a rule and packetout received packet-out
+        rulecreated = flowManager.handleIpPacket(srcIpAddr, srcMac, dstIpAddr, dstMac);
+        if (rulecreated){
+            packetDispatcher.dispatchPacket(payload, srcIpAddr, dstIpAddr);
         }
     }
 }

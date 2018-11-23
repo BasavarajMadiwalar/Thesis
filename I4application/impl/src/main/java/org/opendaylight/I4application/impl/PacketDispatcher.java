@@ -57,7 +57,6 @@ public class PacketDispatcher {
                             .setPayload(payload)
                             .setNode(new NodeRef(egressNode))
                             .setEgress(dstNCRef)
-                            .setIngress(srcNCRef)
                             .build();
         packetProcessingService.transmitPacket(transmitPacketInput);
         return true;

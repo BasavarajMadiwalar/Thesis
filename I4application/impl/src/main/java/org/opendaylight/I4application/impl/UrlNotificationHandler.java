@@ -30,6 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.TimeUnit;
 
 public class UrlNotificationHandler implements UrlNotificationListener {
 
@@ -147,13 +148,18 @@ public class UrlNotificationHandler implements UrlNotificationListener {
         }
     }
 
-    public void publishCoordinator(Ipv4Address server_Address, String skill){
+    public void publishCoordinator(Ipv4Address server_Address, String skill) {
 
         ArrayList<String> addrList = skillMap.get(skill);
         for (String coordinatorAddress : addrList){
             CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
                     .setCoOrdinatorAddress(Ipv4Address.getDefaultInstance(coordinatorAddress)).setOpcuaServerAddress(server_Address).build();
             notificationPublishService.offerNotification(coOrdinatorIdentified);
+            try {
+                TimeUnit.SECONDS.sleep(10L);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     }
 

@@ -39,7 +39,6 @@ public class FlowManager {
     private FlowWriter flowWriter;
 
     private Ipv4Address mDNSMulticastAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
-//    private MacAddress mDNSMACAddr = MacAddress.getDefaultInstance(" 01:00:5E:00:00:FB");
 
 
     public FlowManager(HostManager hostManager, NetworkGraphService networkGraphService, FlowWriter flowWriter) {
@@ -50,10 +49,10 @@ public class FlowManager {
 
 
     /**
-     * Recieve IP src&dst , mac src&dst and check if the flow exists for the combination.
+     * Recieve IP src&dst , mac src&dst and check if the path exists for the combination.
      *
      */
-    public void handleIpPacket(Ipv4Address srcIP, MacAddress srcMAC, Ipv4Address dstIP, MacAddress dstMAC){
+    public boolean handleIpPacket(Ipv4Address srcIP, MacAddress srcMAC, Ipv4Address dstIP, MacAddress dstMAC){
 
         //ArrayList<Link> path = null;
         List<Link> path = null;
@@ -81,13 +80,15 @@ public class FlowManager {
                     revPath = reversePath(path);
                     if (revPath != null){
                         //flowWriter.addE2Epathflow(dstIP,srcIP,dstMAC,srcMAC,dstNode,srcNode,dstNodeConn,srcNodeConn,revPath);
-                        flowWriter.addFlowToPathNodes(dstIP, dstMAC,srcIP, srcMAC, dstNode, revPath);
+                        return flowWriter.addFlowToPathNodes(dstIP, dstMAC,srcIP, srcMAC, dstNode, revPath);
                     }
                 }
             }else {
                 System.out.println("Could not find the route");
+                return false;
             }
         }
+        return false;
     }
 
     /**
