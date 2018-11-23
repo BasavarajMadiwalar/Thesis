@@ -103,7 +103,6 @@ public class UrlNotificationHandler implements UrlNotificationListener {
 
     public void JsontoHashMap() throws JsonGenerationException, JsonMappingException {
         ObjectMapper objectMapper = new ObjectMapper();
-        HashMap<String, ArrayList<Ipv4Address>> mapObject = null;
         File jsonskillmap = new File("/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/skillmap.json");
 
         try {
