@@ -11,6 +11,7 @@ package org.opendaylight.I4application.impl.Topology;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
@@ -22,6 +23,10 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.No
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnectorKey;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotificationBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotificationBuilder;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.slf4j.Logger;
@@ -32,8 +37,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-//import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
-
 public class HostManager {
 
     private static final Logger LOG = LoggerFactory.getLogger(HostManager.class);
@@ -43,9 +46,11 @@ public class HostManager {
     private HashMap<MacAddress, InstanceIdentifier<NodeConnector>> macAddressMapping;
     private HashMap<String, NodeConnectorRef> controllerswitchconnector;
 
+    private NotificationPublishService notificationProvider;
 
-    public HostManager(DataBroker dataBroker) {
+    public HostManager(DataBroker dataBroker, NotificationPublishService notificationPublishService) {
         this.dataBroker = dataBroker;
+        this.notificationProvider = notificationPublishService;
 
         //Initialize all the Mappings
         ipv4AddressMapping = new HashMap<>();
@@ -115,7 +120,6 @@ public class HostManager {
             }
             readOnlyTransaction.close();
         }
-
     }
 
     private NodeConnectorRef getNCRef(Node node, NodeConnector nodeConnector) {
@@ -147,6 +151,12 @@ public class HostManager {
                     LOG.info("Adding " + ipv4Address.getValue()
                             + " node Connector: " + nc.getId());
                     ipv4AddressMapping.put(ipv4Address, ncid);
+                    // Notify about Host Addition
+                    HostAddedNotification hostAddedNotification =  new HostAddedNotificationBuilder()
+                            .setIPAddress(ipv4Address)
+                            .setSwitchId(getIpNode(ipv4Address).getId().toString())
+                            .build();
+                    notificationProvider.offerNotification(hostAddedNotification);
                 } else {
                     NodeConnector oldNc = getIpNodeConnector(ipv4Address);
                     if(oldNc != null) {
@@ -158,6 +168,26 @@ public class HostManager {
             }
         }
     }
+
+    public synchronized void removeIpv4Address(Ipv4Address ipv4Address){
+
+        if (ipv4Address != null){
+            LOG.info("Remove Ipv4Address {} from HostManager", ipv4Address.getValue());
+            ipv4AddressMapping.remove(ipv4Address);
+            HostRemovedNotification hostRemovedNotification = new HostRemovedNotificationBuilder()
+                                        .setIPAddress(ipv4Address).build();
+            notificationProvider.offerNotification(hostRemovedNotification);
+        }
+    }
+
+    public synchronized void removeMacAddress(MacAddress macAddress){
+        if (macAddress != null){
+            LOG.info("Remove MacAddress {} from HostManager", macAddress.getValue());
+            macAddressMapping.remove(macAddress);
+        }
+    }
+
+
 
     public synchronized void addMacAddress(MacAddress macAddress,
                                            InstanceIdentifier<NodeConnector> ncid) {
@@ -238,7 +268,6 @@ public class HostManager {
                     .firstIdentifierOf(Node.class);
             node = getNodeFromII(nodeId);
         }
-
         return node;
     }
 

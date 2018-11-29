@@ -1,0 +1,38 @@
+module hostNotification {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:hostManagerNotification";
+    prefix "hostNotif";
+
+    import ietf-inet-types {
+        prefix inet;
+        revision-date 2013-07-15;
+    }
+    revision "2015-01-05" {
+        description "Initial revision of I4application model";
+    }
+
+    notification hostRemovedNotification {
+        description
+            "Indicates the removal of host from network";
+
+        leaf IPAddress {
+            type inet:ipv4-address;
+        }
+    } // notification hostNotification
+
+    notification hostAddedNotification {
+            description
+                "Indicates the addition of host to network";
+
+            leaf IPAddress {
+                type inet:ipv4-address;
+        }
+            leaf switch-id {
+                type string {
+                     length "0 .. 255";
+                }
+            }
+    } // notification hostNotification
+}
+
+

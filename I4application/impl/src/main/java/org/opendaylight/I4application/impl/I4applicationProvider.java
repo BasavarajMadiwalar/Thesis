@@ -58,7 +58,7 @@ public class I4applicationProvider {
     public void init() {
         LOG.info("I4applicationProvider Session Initiated");
 
-        HostManager hostManager = new HostManager(dataBroker);
+        HostManager hostManager = new HostManager(dataBroker, notificationPublishService);
         LOG.info("Host Manager is instantiated");
 
         networkGraphService = new NetworkGraphImpl();
@@ -94,6 +94,12 @@ public class I4applicationProvider {
          */
         IncomingPktHandler incomingPktHandler = new IncomingPktHandler(notificationService, flowManager, packetDispatcher);
         LOG.info("Imcoming Packet Handler is instantiated");
+
+        /**
+         * Create UrlNotificationHandler - Handle urlNotifications.
+         */
+        UrlNotificationHandler urlNotificationHandler = new UrlNotificationHandler(notificationService, notificationPublishService,
+                                                                                    hostManager);
 
         /**
          * Create arp Packet Handler - Handle Arp packets from to opcuaclient

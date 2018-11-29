@@ -20,6 +20,9 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.basepacket.rev140528
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.ipv4.packet.received.packet.chain.packet.Ipv4Packet;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.CoOrdinatorIdentified;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.I4applicationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.DiscoveryUrlNotification;
@@ -33,16 +36,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener {
+
+
+public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
-    private final static String UDP_PROTOCOL = "Udp";
     private final static int MDNS_SRC_PORT = 5353;
-    private Ipv4Address coordinator = Ipv4Address.getDefaultInstance("10.0.0.3");
-    private Ipv4Address coordinator1 = Ipv4Address.getDefaultInstance("10.0.0.4");
     private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
+
     private static ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>
             mDNSPackets = new ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>();
+
+    private static ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>> coordinatorPackets =
+                            new ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>>();
 
     private static Queue<ImmutablePair<Ipv4Packet, byte[]>> queue = new ConcurrentLinkedQueue<ImmutablePair<Ipv4Packet, byte[]>>();
     private static ConcurrentHashMap<Ipv4Address, String> urlRecord = new ConcurrentHashMap<Ipv4Address, String>();
@@ -52,6 +58,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private NotificationPublishService notificationProvider;
     private FlowManager flowManager;
     private PacketDispatcher packetDispatcher;
+
 
 
     ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
@@ -105,6 +112,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         if(coordinatorList.get("coordinators").contains(ipv4Packet.getSourceIpv4().getValue()))
         {
             LOG.debug("Coordinator mDNS packets received");
+            coordinatorPktHandler(ipv4Packet, data);
             return;
         }
 
@@ -115,6 +123,8 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
         mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
     }
+
+
 
     class mDNSPacketBuffer implements Runnable {
         Ipv4Packet mDNSPacket = null;
@@ -169,7 +179,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             String url = null;
             Ipv4Address srcIPaddr = mDNSPacket.getSourceIpv4();
 
-            // Check foir
+            // Check for
             CompletableFuture<String> future = CompletableFuture.supplyAsync(()->mDNSparser.mDNSRecordParser(mDNSPayload));
             try {
                 url = future.get();
@@ -198,6 +208,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         Ipv4Address opcua_server = notification.getOpcuaServerAddress();
         Ipv4Address coordinator = notification.getCoOrdinatorAddress();
 
+        sendcoordinatorpkts(opcua_server, coordinator);
         flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
         if (flowsetupResult){
             CompletableFuture.runAsync(()->sendPacketOut(opcua_server, coordinator));
@@ -220,5 +231,60 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
         LOG.debug("mDNS Packet out success");
         mDNSPackets.remove(opcuaServer);
+        urlRecord.remove(opcuaServer);
+    }
+
+    public void sendcoordinatorpkts(Ipv4Address opcuaserver, Ipv4Address coordinator){
+        ArrayList<byte[]> packetList = coordinatorPackets.get(coordinator);
+
+        for (byte[] packet:packetList){
+            boolean result = packetDispatcher.dispatchmDNSPacket(packet, coordinator, opcuaserver);
+        }
+
+    }
+
+    public void coordinatorPktHandler(Ipv4Packet ipv4Packet, byte[] payload){
+        ArrayList<byte[]> oldlist = new ArrayList<byte[]>();
+
+
+        // Just add the packet to Hash Map with coordinator IP as key and Value as list of packets
+        if(!(coordinatorPackets.containsKey(ipv4Packet.getSourceIpv4()))){
+            LOG.info("Adding IP address to cooridnator list" + ipv4Packet.getSourceIpv4().getValue());
+            coordinatorPackets.put(ipv4Packet.getSourceIpv4(), new ArrayList<>(Arrays.asList(payload)));
+        } else{
+            try {
+                oldlist=coordinatorPackets.get(ipv4Packet.getSourceIpv4());
+            }catch (NullPointerException e){
+                LOG.info("Null Pointer Exception {}", e);
+            }
+            oldlist.add(payload);
+            coordinatorPackets.put(ipv4Packet.getSourceIpv4(), oldlist);
+        }
+
+    }
+
+    /**
+     * Method is called when HostManager removed any hosts from it's database upon
+     *  shutdown of a host.
+     * @param notification
+     */
+
+    @Override
+    public void onHostRemovedNotification(HostRemovedNotification notification) {
+
+        if (notification != null){
+            if (coordinatorPackets.containsKey(notification.getIPAddress())){
+                LOG.debug("Remove coordinator packets for " + notification.getIPAddress());
+                coordinatorPackets.remove(notification.getIPAddress());
+            } else {
+                return;
+            }
+        }
+        return;
+    }
+
+    @Override
+    public void onHostAddedNotification(HostAddedNotification notification) {
+        // Do Nothing
     }
 }

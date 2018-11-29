@@ -131,7 +131,14 @@ public class TopologyChangeListener implements DataChangeListener {
 
 
     private void handleAddressesRemoved(InstanceIdentifier<?> id, Addresses addresses){
-        // Remove Address from HostManager
+        Ipv4Address ipv4Address = addresses.getIp().getIpv4Address();
+        MacAddress macAddress = addresses.getMac();
+        if ((ipv4Address != null)){
+            hostManager.removeIpv4Address(ipv4Address);
+        }
+        if (macAddress != null){
+            hostManager.removeMacAddress(macAddress);
+        }
     }
 
 

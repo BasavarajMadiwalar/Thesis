@@ -41,10 +41,10 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="dataBroker"/>
     <argument ref="salFlowService"/>
   </bean>
-  <bean id="UrlNotificationHandler" class="org.opendaylight.I4application.impl.UrlNotificationHandler">
+  <!--<bean id="UrlNotificationHandler" class="org.opendaylight.I4application.impl.UrlNotificationHandler">
     <argument ref="notificationService"/>
     <argument ref="notificationProvider"/>
-  </bean>
+  </bean>-->
 
   <!-- Its a good practise to include the Class to be instantiated in Blueprint
       rather than using the Activator or Provider class -->
