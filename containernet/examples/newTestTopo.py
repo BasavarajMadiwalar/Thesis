@@ -3,7 +3,6 @@
 This is the most simple example to showcase Containernet.
 """
 from mininet.net import Containernet
-from mininet.node import Controller
 from mininet.cli import CLI
 from mininet.link import TCLink
 from mininet.log import info, setLogLevel
@@ -13,42 +12,66 @@ from time import time
 from signal import SIGINT
 import subprocess
 from time import sleep
+import argparse
 
-
-def createNet():
+def createNet(switchcount):
 
     net = Containernet(controller=None)
     info('*** Adding controller\n')
     net.addController(name="ODL", controller=RemoteController,
                       ip='127.0.0.1', port=6653)
-    info('*** Adding docker containers\n')
-    d1 = net.addDocker('d1', ip='10.0.0.1', mac='00:00:00:00:00:01', dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/d1:/root/opcua'])
-    d2 = net.addDocker('d2', ip='10.0.0.2', mac='00:00:00:00:00:02', dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/d2:/root/opcua'])
-    d3 = net.addDocker('d3', ip='10.0.0.3', mac='00:00:00:00:00:03', dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/d3:/root/opcua'])
-    d4 = net.addDocker('d4', ip='10.0.0.4', mac='00:00:00:00:00:04', dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/d4:/root/opcua'])
-
 
     info('*** Adding switches\n')
-    s1 = net.addSwitch('s1')
-    s2 = net.addSwitch('s2')
+    switch_list = []
+    for i in range(1, switchcount+1):
+        switch_list.append(net.addSwitch('s'+str(i)))
 
+    switch_opcua_map = {}
+    ipMap = createIpMap(switchcount)
+
+    # Here we create switch to coordinator map
+    info('*** Adding coordinator docker containers\n')
+    device_id = 1
+    switch_coordinator = {}
+    for i in range(1, switchcount+1):
+        switch_coordinator['s'+str(i)] = net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],\
+                dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)])
+        device_id=device_id+1
+
+    # Add opc-ua servers to swithc_opcua Map
+    info('*** Adding opc-ua server docker containers\n')
+    for i in range(1, switchcount+1):
+        opcua_servers = []
+        for k in range(1, 4):
+            opcua_servers.append(net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],\
+                dimage="ubuntu:trusty",volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)]))
+            device_id = device_id+1
+        switch_opcua_map['s'+str(i)] = opcua_servers
 
     info('*** Creating links\n')
-    net.addLink(d1, s1)
-    net.addLink(d3, s1)
-    net.addLink(s1, s2, cls=TCLink, delay='100ms', bw=1)
-    net.addLink(d2, s2)
-    net.addLink(d4, s2)
+    switch_id = 1
+    for switch in switch_list:
+        opcua_list = switch_opcua_map['s'+str(switch_id)]
+        for server in opcua_list:
+            net.addLink(server,switch)
+        net.addLink(server, switch_coordinator['s'+str(switch_id)])
+        switch_id=switch_id+1
+
+    length = len(switch_list)
+
+    for i in range(1, length):
+        net.addLink(switch_list[i-1], switch_list[i])
 
     info('*** Starting network\n')
     net.start()
+
     info('*** Testing connectivity\n')
-    net.ping([d1, d2, d3, d4])
+    hosts_list = net.hosts
+    # net.ping(hosts_list)
+
     info('*** Running script to configure host names')
-    d1.cmd("./root/opcua/hostnamegen.sh 4")
-    d2.cmd("./root/opcua/hostnamegen.sh 4")
-    d3.cmd("./root/opcua/hostnamegen.sh 4")
-    d4.cmd("./root/opcua/hostnamegen.sh 4")
+    for host in hosts_list:
+        host.cmd("./root/opcua/hostnamegen.sh 8")
 
     return net
 
@@ -57,13 +80,25 @@ def createNet():
     # info('*** Stopping network')
     # net.stop()
 
-def runProgram(net):
+
+# Method used to create map of HostName to IP address Map
+def createIpMap(switchcount):
+
+    ipMap = {}
+    for i in range(1, (switchcount*4)+1):
+        ipMap['d'+str(i)] = "10.0.0."+str(i)
+
+    return ipMap
+
+
+def runProgram(net, switch_count):
     info('*** Collecting Host List')
 
     # Get list of hosts
     hosts = net.hosts
-    opcua = hosts[:2]
-    ldsservers = hosts[2:4]
+    opcua_server_count = switch_count*3
+    ldsservers = hosts[0:switch_count]
+    opcua = hosts[switch_count:opcua_server_count+1]
 
     popens1 = {}
     popens2 = {}
@@ -77,13 +112,6 @@ def runProgram(net):
     for opcua_server in opcua:
         popens2[opcua_server] = opcua_server.popen(["./root/opcua/server_multicast1"])
         sleep(1)
-
-    # for opcua_server in opcua:
-    #     popens2[opcua_server] = opcua_server.popen("docker exec -i -t mn.d1 /root/opcua/server_multicast1")
-
-
-    # proc1 = subprocess.Popen("docker exec -i -t mn.d1 /root/opcua/server_multicast1")
-    # proc2 = subprocess.Popen("docker exec -i -t mn.d2 /root/opcua/server_multicast1")
 
     info("Monitoring the output for", 10 , "seconds\n")
 
@@ -112,8 +140,13 @@ def runProgram(net):
 
 if __name__== "__main__":
     setLogLevel('info')
-    net = createNet()
-    runProgram(net)
+    parser = argparse.ArgumentParser(description="Test Script to generate mininet topology")
+    parser.add_argument('-sc', '--switches', help="Switch count for topology", default=2)
+    args= parser.parse_args()
+
+    # createIpMap(3)
+    net = createNet(args.switches)
+    runProgram(net, args.switches)
 
 
 
