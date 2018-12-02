@@ -13,6 +13,7 @@ from signal import SIGINT
 import subprocess
 from time import sleep
 import argparse
+import json
 
 def createNet(switchcount):
 
@@ -28,13 +29,14 @@ def createNet(switchcount):
 
     switch_opcua_map = {}
     ipMap = createIpMap(switchcount)
+    macMap = createMacMap(switchcount)
 
     # Here we create switch to coordinator map
     info('*** Adding coordinator docker containers\n')
     device_id = 1
     switch_coordinator = {}
     for i in range(1, switchcount+1):
-        switch_coordinator['s'+str(i)] = net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],\
+        switch_coordinator['s'+str(i)] = net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],mac=macMap['d'+str(device_id)],\
                 dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)])
         device_id=device_id+1
 
@@ -43,7 +45,7 @@ def createNet(switchcount):
     for i in range(1, switchcount+1):
         opcua_servers = []
         for k in range(1, 4):
-            opcua_servers.append(net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],\
+            opcua_servers.append(net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],mac=macMap['d'+str(device_id)],\
                 dimage="ubuntu:trusty",volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)]))
             device_id = device_id+1
         switch_opcua_map['s'+str(i)] = opcua_servers
@@ -54,7 +56,7 @@ def createNet(switchcount):
         opcua_list = switch_opcua_map['s'+str(switch_id)]
         for server in opcua_list:
             net.addLink(server,switch)
-        net.addLink(server, switch_coordinator['s'+str(switch_id)])
+        net.addLink(switch, switch_coordinator['s'+str(switch_id)])
         switch_id=switch_id+1
 
     length = len(switch_list)
@@ -67,7 +69,7 @@ def createNet(switchcount):
 
     info('*** Testing connectivity\n')
     hosts_list = net.hosts
-    # net.ping(hosts_list)
+    net.ping(hosts_list)
 
     info('*** Running script to configure host names')
     for host in hosts_list:
@@ -85,10 +87,23 @@ def createNet(switchcount):
 def createIpMap(switchcount):
 
     ipMap = {}
+
     for i in range(1, (switchcount*4)+1):
         ipMap['d'+str(i)] = "10.0.0."+str(i)
 
     return ipMap
+
+def createMacMap(switchcount):
+    base_mac = "00:00:00:00:00:"
+    macMap = {}
+
+    for id in range(1, (switchcount*4)+1):
+        if(id>15):
+            macMap['d'+str(id)] = base_mac+hex(id).lstrip("0x")
+        else:
+            macMap['d'+str(id)] = base_mac+'0'+hex(id).lstrip("0x")
+
+    return macMap
 
 
 def runProgram(net, switch_count):
@@ -98,14 +113,15 @@ def runProgram(net, switch_count):
     hosts = net.hosts
     opcua_server_count = switch_count*3
     ldsservers = hosts[0:switch_count]
-    opcua = hosts[switch_count:opcua_server_count+1]
+    opcua = hosts[switch_count:opcua_server_count+2]
 
     popens1 = {}
     popens2 = {}
-    endtime = time() + 30
+    endtime = time() + 60
 
     for lds in ldsservers:
         popens1[lds] = lds.popen(['./root/opcua/ldsserver'],shell=False)
+        sleep(1)
 
     sleep(5)
 
@@ -137,14 +153,43 @@ def runProgram(net, switch_count):
     info('*** Stopping network')
     net.stop()
 
+def createSkillMap(switch_count, IpMap):
+    info("*-*- Creating coordinator Skill Map")
+
+    skill_list = ["Gripper", "Conveyer", "Sensor"]
+    skill_map = {}
+
+    for switch_id in range(1, switch_count+1):
+        skill_map[IpMap['d'+str(switch_id)]] = skill_list
+
+    with open('../../I4application/impl/src/main/resources/skillmap.json', 'w') as file:
+        json.dump(skill_map, file, sort_keys=True, indent=4)
+
+def create_coordinatorList(switch_count, IpMap):
+    info("*-*- Creating coordinator list")
+
+    coordinator_list = []
+    coordinator_map = {}
+
+    for i in range(1, switch_count+1):
+        coordinator_list.append(IpMap['d'+str(i)])
+
+    coordinator_map["coordinators"] = coordinator_list
+
+    with open('../../I4application/impl/src/main/resources/coordinatorList.json', 'w') as file:
+        json.dump(coordinator_map, file, sort_keys=True, indent=4)
+
 
 if __name__== "__main__":
     setLogLevel('info')
     parser = argparse.ArgumentParser(description="Test Script to generate mininet topology")
-    parser.add_argument('-sc', '--switches', help="Switch count for topology", default=2)
+    parser.add_argument('-sc', '--switches', type=int, help="Switch count for topology", default=2)
     args= parser.parse_args()
 
-    # createIpMap(3)
+    # IpMap = createIpMap((args.switches))
+    # macMpa = createMacMap(args.switches)
+    # createSkillMap(args.switches, IpMap)
+    # create_coordinatorList(args.switches, IpMap)
     net = createNet(args.switches)
     runProgram(net, args.switches)
 
