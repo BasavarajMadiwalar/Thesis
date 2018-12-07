@@ -16,6 +16,7 @@ import org.opendaylight.I4application.impl.flow.FlowWriter;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.service.rev130819.SalFlowService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.group.service.rev130918.SalGroupService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.service.rev130709.PacketProcessingService;
@@ -33,6 +34,8 @@ public class I4applicationProvider {
     private NotificationPublishService notificationPublishService;
     private PacketProcessingService packetProcessingService;
     private SalGroupService salGroupService;
+    private RpcProviderRegistry rpcProviderRegistry;
+
 
     /**
      * The Constructor is called when blue print container is created.
@@ -42,13 +45,15 @@ public class I4applicationProvider {
     public I4applicationProvider(DataBroker dataBroker, NotificationService notificationService,
                                  SalFlowService salFlowService, NotificationPublishService notificationPublishService,
                                  PacketProcessingService packetProcessingService,
-                                 SalGroupService salGroupService) {
+                                 SalGroupService salGroupService,
+                                 RpcProviderRegistry rpcProviderRegistry) {
         this.dataBroker = dataBroker;
         this.notificationService = notificationService;
         this.salFlowService = salFlowService;
         this.notificationPublishService = notificationPublishService;
         this.packetProcessingService = packetProcessingService;
         this.salGroupService = salGroupService;
+        this.rpcProviderRegistry = rpcProviderRegistry;
     }
 
 
@@ -99,7 +104,8 @@ public class I4applicationProvider {
          * Create UrlNotificationHandler - Handle urlNotifications.
          */
         UrlNotificationHandler urlNotificationHandler = new UrlNotificationHandler(notificationService, notificationPublishService,
-                                                                                    hostManager);
+                                                                                    hostManager, rpcProviderRegistry);
+
 
         /**
          * Create arp Packet Handler - Handle Arp packets from to opcuaclient
@@ -110,7 +116,8 @@ public class I4applicationProvider {
          * Create an Instance of mDNSPacket Handler
          */
 
-        mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, notificationPublishService, flowManager, packetDispatcher);
+        mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, notificationPublishService, flowManager,
+                packetDispatcher, rpcProviderRegistry);
         LOG.info("Instance of mDNS Packet Handler created");
     }
 

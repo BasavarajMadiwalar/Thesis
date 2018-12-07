@@ -63,7 +63,7 @@ public class PacketDispatcher {
     }
 
     public boolean dispatchPacket(byte[] payload, Ipv4Address scrIP, Ipv4Address dstIP){
-        LOG.info("Dispatch IP Packets");
+        LOG.debug("Dispatch IP Packets");
         NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
         if (dstNCRef == null){
             LOG.debug("Could not find an entry for:" + dstIP);

@@ -10,11 +10,13 @@ package org.opendaylight.I4application.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.Futures;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.opendaylight.I4application.impl.flow.FlowManager;
 import org.opendaylight.I4application.impl.utils.PacketParsingUtils;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.basepacket.rev140528.packet.chain.grp.PacketChain;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
@@ -25,8 +27,11 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmana
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.CoOrdinatorIdentified;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.I4applicationListener;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.updatecoordinator.rev181201.UpdateCoordinatorService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.DiscoveryUrlNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.DiscoveryUrlNotificationBuilder;
+import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +43,7 @@ import java.util.concurrent.*;
 
 
 
-public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener {
+public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
     private final static int MDNS_SRC_PORT = 5353;
@@ -61,19 +66,23 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
 
 
+
     ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
     mDNSPacketBuffer mDNSPacketBufferThrd = new mDNSPacketBuffer();
     mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(mDNSPackets);
 
     // Register for
     public mDNSPacketHandler(NotificationService notificationService, NotificationPublishService notificationPublishService,
-                             FlowManager flowManager, PacketDispatcher packetDispatcher) {
+                             FlowManager flowManager, PacketDispatcher packetDispatcher, RpcProviderRegistry rpcProviderRegistry) {
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
         this.notificationProvider = notificationPublishService;
+        rpcProviderRegistry.addRpcImplementation(UpdateCoordinatorService.class, this);
+
         this.flowManager = flowManager;
         this.packetDispatcher = packetDispatcher;
         JsontoArraylist();
+
     }
 
     public void JsontoArraylist(){
@@ -147,18 +156,18 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             mDNSPacketSring = new String(packetPayload, StandardCharsets.UTF_8);
 
             if (!(mDNSPacketSring.contains("_opcua-tcp"))){
-                LOG.info("Not an OPC-UA mDNS Packet");
+                LOG.debug("Not an OPC-UA mDNS Packet");
                 return;
             }
 
             if(!(mDNSPackets.containsKey(mDNSPacket.getSourceIpv4()))){
-                LOG.info("Adding IP address to Map" + mDNSPacket.getSourceIpv4().getValue());
+                LOG.debug("Adding IP address to Map" + mDNSPacket.getSourceIpv4().getValue());
                 mDNSPackets.put(mDNSPacket.getSourceIpv4(), new ArrayList<>(Arrays.asList(packetPayload)));
             }else{
                 try {
                     oldlist = mDNSPackets.get(mDNSPacket.getSourceIpv4());
                 }catch (NullPointerException e){
-                    LOG.info("Null Pointer Exception {}", e);
+                    LOG.debug("Null Pointer Exception {}", e);
                 }
                 oldlist.add(packetPayload);
                 mDNSPackets.put(mDNSPacket.getSourceIpv4(), oldlist);
@@ -175,7 +184,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
          */
 
         public void SRVRecHandler(Ipv4Packet mDNSPacket, byte[] mDNSPayload){
-            LOG.info("SRV Record Handler");
+            LOG.debug("SRV Record Handler");
             String url = null;
             Ipv4Address srcIPaddr = mDNSPacket.getSourceIpv4();
 
@@ -189,7 +198,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
                 e.printStackTrace();
             }
             if ((url.equals(null))|| urlRecord.containsKey(srcIPaddr)){
-                LOG.info("Not an SRV Record or Record already exist");
+                LOG.debug("Not an SRV Record or Record already exist");
                 return;
             }
             urlRecord.put(srcIPaddr, url);
@@ -202,7 +211,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
     @Override
     public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
-        LOG.info("Coordinator selection received");
+        LOG.debug("Coordinator selection received");
         Boolean flowsetupResult;
 
         Ipv4Address opcua_server = notification.getOpcuaServerAddress();
@@ -286,5 +295,13 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     @Override
     public void onHostAddedNotification(HostAddedNotification notification) {
         // Do Nothing
+    }
+
+    @Override
+    public Future<RpcResult<Void>> updateCoordinatorList() {
+        LOG.debug("Updating coordinator map");
+        System.out.println("Updating coordinator list");
+        JsontoArraylist();
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 }

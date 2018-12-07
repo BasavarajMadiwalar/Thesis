@@ -1,0 +1,16 @@
+module updateSkills {
+    yang-version 1;
+    namespace "urn:opendaylight:params:xml:ns:yang:updateSkills";
+    prefix "updateSkillRpc";
+
+    revision "2018-12-01" {
+        description "Initial revision of I4application model";
+    }
+
+    rpc update-skills-map {
+        description "Update SkillsMap and Coordinator list using new data";
+
+
+    } // rpc update-skills-map
+
+}

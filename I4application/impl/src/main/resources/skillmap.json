@@ -1,4 +1,37 @@
 {
-	"10.0.0.3":["Gripper"],
-	"10.0.0.4":["Conveyer"]
+    "10.0.0.1": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.2": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.3": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.4": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.5": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.6": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.7": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ]
 }

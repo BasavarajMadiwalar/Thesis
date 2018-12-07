@@ -35,7 +35,7 @@ public class ArpPacketHandler implements ArpPacketListener {
 
     @Override
     public void onArpPacketReceived(ArpPacketReceived notification) {
-        LOG.info("Arp Packet Received");
+        LOG.debug("Arp Packet Received");
         ArpPacket arpPacket = null;
         Ipv4Packet ipv4Packet = null;
         byte[] payload = null;
@@ -56,13 +56,13 @@ public class ArpPacketHandler implements ArpPacketListener {
 
         if (!( opcua_client.getValue().matches(arpPacket.getSourceProtocolAddress())
                 || opcua_client.getValue().matches(arpPacket.getDestinationProtocolAddress()))){
-            LOG.info("not an OPCUA client arp");;
+            LOG.debug("not an OPCUA client arp");;
             return;
         }
 
         srcIpAddr = Ipv4Address.getDefaultInstance(arpPacket.getSourceProtocolAddress());
         dstIpAddr = Ipv4Address.getDefaultInstance(arpPacket.getDestinationProtocolAddress());
-        LOG.info("Dispatch opcua arp packets");
+        LOG.debug("Dispatch opcua arp packets");
         packetDispatcher.dispatchPacket(notification.getPayload(), srcIpAddr, dstIpAddr);
         return;
     }

@@ -47,12 +47,12 @@ public class IncomingPktHandler implements Ipv4PacketListener {
 
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
-        LOG.info("Incoming Packet Handler recvied notification");
+        LOG.debug("Incoming Packet Handler recvied notification");
         processPacket(notification);
     }
 
     public void processPacket(Ipv4PacketReceived ipv4PacketReceived){
-        LOG.info("Process Incoming Packet");
+        LOG.debug("Process Incoming Packet");
 
         List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();

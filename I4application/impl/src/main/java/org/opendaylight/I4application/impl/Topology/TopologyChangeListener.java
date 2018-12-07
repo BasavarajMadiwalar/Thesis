@@ -31,6 +31,8 @@ import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.
 import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +44,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TopologyChangeListener implements DataChangeListener {
 
+    private final static Logger LOG = LoggerFactory.getLogger(TopologyChangeListener.class);
     private DataBroker dataBroker;
     private String topologyId = "flow:1";
     private boolean threadReschedule = false;
@@ -122,10 +125,12 @@ public class TopologyChangeListener implements DataChangeListener {
         }
         if (mac!=null && ipv4Address!=null){
             //Add a log ipv4 Address and Mac address is added
-            System.out.println("New Ipv4 Address Added: " + ipv4Address.getValue() + " & new mac added: " + mac.getValue());
+            LOG.debug("New IPv4 Address Added {} & new MAC added {}", ipv4Address.getValue(), mac.getValue());
+//            System.out.println("New Ipv4 Address Added: " + ipv4Address.getValue() + " & new mac added: " + mac.getValue());
         }else if (mac != null){
             // Add a log saying only Mac address is added
-            System.out.println("New mac added: " + mac);
+            LOG.debug("New MAC Added {}", mac);
+//            System.out.println("New mac added: " + mac);
         }
     }
 

@@ -109,16 +109,9 @@ public class InitialFlowExecutor implements DataChangeListener {
         if(changednodeData !=null && !changednodeData.isEmpty()){
             Set<InstanceIdentifier<?>> nodeIds = changednodeData.keySet();
             if(nodeIds != null && !nodeIds.isEmpty()){
-                // Try and capture only the value of node id
-                //InstanceIdentifier<?> nodeIID = (InstanceIdentifier<Node>) nodeIds;
-                //System.out.println("NodId of changedData: " + nodeIID.firstKeyOf(Node.class, NodeKey.class).getId().getValue());
-                //System.out.println("NodId of changedData: " + changednodeData.keySet());
                 initialFlowExecutor.submit(new InitialFlowWriter(nodeIds));
-
             }
         }
-
-
     }
 
     private class InitialFlowWriter implements Runnable{

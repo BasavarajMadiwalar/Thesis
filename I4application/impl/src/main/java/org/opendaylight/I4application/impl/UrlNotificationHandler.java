@@ -12,19 +12,24 @@ import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.util.concurrent.Futures;
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
 import org.apache.qpid.amqp_1_0.jms.impl.QueueImpl;
 import org.opendaylight.I4application.impl.Topology.HostManager;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.CoOrdinatorIdentified;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.CoOrdinatorIdentifiedBuilder;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.updateskills.rev181201.UpdateSkillsService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.DiscoveryUrlNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.UrlNotificationListener;
+import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,8 +40,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.concurrent.Future;
 
-public class UrlNotificationHandler implements UrlNotificationListener, HostNotificationListener {
+public class UrlNotificationHandler implements UrlNotificationListener, HostNotificationListener, UpdateSkillsService {
 
     /**
      *  Create Reference for Notification Service and register this class
@@ -47,6 +53,7 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
 
     private NotificationService notificationService;
     private NotificationPublishService notificationPublishService;
+
 
     //private Ipv4Address coordinatorAddress = Ipv4Address.getDefaultInstance("10.0.0.3");
     private Ipv4Address opcua_server_Address;
@@ -62,16 +69,18 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
     private MessageConsumer messageConsumer;
 
     private HostManager hostManager;
-
+    private RpcProviderRegistry rpcProviderRegistry;
 
     public UrlNotificationHandler(NotificationService notificationService,
                                   NotificationPublishService notificationPublishService
-                                  , HostManager hostManager) {
+                                  , HostManager hostManager, RpcProviderRegistry rpcProviderRegistry) {
         LOG.info("URL Notification Handler Initiated");
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
         this.notificationPublishService = notificationPublishService;
         this.hostManager = hostManager;
+        rpcProviderRegistry.addRpcImplementation(UpdateSkillsService.class, this);
+
         try {
             setJMSclient();
         } catch (NamingException e) {
@@ -129,6 +138,7 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
 
     @Override
     public void onHostRemovedNotification(HostRemovedNotification notification) {
+        LOG.debug("Host Removed Notification Received");
         // Update the Switch to Coordinator Hashmap
         if (switchMap.containsValue(notification.getIPAddress())){
             for (String switchId: switchMap.keySet()){
@@ -145,15 +155,14 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
 
     @Override
     public void onHostAddedNotification(HostAddedNotification notification) {
+        LOG.debug("Host Added notification received");
         Ipv4Address hostAddress = notification.getIPAddress();
 
         // check if the coordinator skillmap as hostaddress as key.
-
         if (!(coordinatorskillMap.containsKey(hostAddress.getValue()))){
-            System.out.println(hostAddress.getValue());
             return;
         }
-        System.out.println("Adding IPAddress " + hostAddress.getValue() + "  to switchMap");
+
         try {
             switchMap.put(notification.getSwitchId(), new ArrayList<>(Arrays.asList(hostAddress)));
         }catch (Exception e){
@@ -163,22 +172,21 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
 
     public void publishUrl(DiscoveryUrlNotification notification) throws JMSException {
 
-        // Create a map object to map i[ to url
+        // Create a map object to map ip Addr to url
         MapMessage ip2urlMap = session.createMapMessage();
         ip2urlMap.setString("IPAddr", notification.getSrcIPAddress().toString());
         ip2urlMap.setString("URL", notification.getDiscoveryUrl());
 
 
         ip2urlMap.setJMSReplyTo(temporaryQueue);
-        LOG.info("Publishing discovery URL {} onto queue", notification.getDiscoveryUrl());
+        LOG.debug("Publishing discovery URL {} onto queue", notification.getDiscoveryUrl());
         messageProducer.send(ip2urlMap, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY,
                 Message.DEFAULT_TIME_TO_LIVE);
     }
 
     @Override
     public void onDiscoveryUrlNotification(DiscoveryUrlNotification notification) {
-        System.out.println("Publish the url onto queue");
-        LOG.info("Got discovery URL {} notification",notification.getDiscoveryUrl() );
+        LOG.debug("Got discovery URL {} notification",notification.getDiscoveryUrl());
         opcua_server_Address = notification.getSrcIPAddress();
 
         try {
@@ -216,13 +224,28 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
         for (Ipv4Address coordinator: coordinatorList){
             if (coordinatorskillMap.get(coordinator.getValue()).contains(skill)){
                 LOG.info("Publishing identified coordinator {} ", coordinator.getValue());
-                System.out.println("Publishing identified coordinator " + coordinator.getValue());
+                System.out.format("Coordinator for %s is %s.%n", server_Address.getValue(),coordinator.getValue());
                 CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
                         .setCoOrdinatorAddress(coordinator).setOpcuaServerAddress(server_Address)
                         .build();
                 notificationPublishService.offerNotification(coOrdinatorIdentified);
             }
         }
+    }
+
+    @Override
+    public Future<RpcResult<Void>> updateSkillsMap() {
+        System.out.println("Called Update Skill Map");
+
+        try {
+            JsontoHashMap();
+        } catch (JsonGenerationException e) {
+            e.printStackTrace();
+        } catch (JsonMappingException e) {
+            e.printStackTrace();
+        }
+
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 
     /**

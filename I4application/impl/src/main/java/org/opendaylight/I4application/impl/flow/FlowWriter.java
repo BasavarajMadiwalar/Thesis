@@ -101,7 +101,7 @@ public class FlowWriter {
     private AtomicLong flowCookieInc = new AtomicLong(0x4a00000000000000L);
     private AtomicLong flowIdInc = new AtomicLong();
     private short flowTableId = 0;
-    private final String FLOW_ID_PREFIX = "L2switch-";
+    private final String FLOW_ID_PREFIX = "L2switch-normal-";
     private final String MDNS_FLOW_ID_PREFIX = "L2switch-mDNS-";
     private List<Link> path = null;
 
@@ -158,7 +158,7 @@ public class FlowWriter {
         if (!srcNode.getId().equals(dstNode.getId())){
             boolean dstNodeFlow = addFlowtoNode(dstIP, dstMac, dstNCRef);
             if (srcNodeflow == true && dstNodeFlow == true){
-                System.out.println("Rule created for " + srcIP + "and" + dstIP);
+//                System.out.println("Rule created for " + srcIP + "and" + dstIP);
                 addFlowToPathNodes(srcIP,srcMac,dstIP,dstMac, srcNode, path);
             }
         }
@@ -333,7 +333,7 @@ public class FlowWriter {
                 .setPriority(1000)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
                 .setHardTimeout(0)
-                .setIdleTimeout(600)
+                .setIdleTimeout(1200)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false, false, false, false, false));
         return flowBuilder.build();

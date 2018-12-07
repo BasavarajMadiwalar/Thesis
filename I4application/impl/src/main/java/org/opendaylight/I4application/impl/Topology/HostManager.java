@@ -172,7 +172,7 @@ public class HostManager {
     public synchronized void removeIpv4Address(Ipv4Address ipv4Address){
 
         if (ipv4Address != null){
-            LOG.info("Remove Ipv4Address {} from HostManager", ipv4Address.getValue());
+            LOG.debug("Remove Ipv4Address {} from HostManager", ipv4Address.getValue());
             ipv4AddressMapping.remove(ipv4Address);
             HostRemovedNotification hostRemovedNotification = new HostRemovedNotificationBuilder()
                                         .setIPAddress(ipv4Address).build();
@@ -182,7 +182,7 @@ public class HostManager {
 
     public synchronized void removeMacAddress(MacAddress macAddress){
         if (macAddress != null){
-            LOG.info("Remove MacAddress {} from HostManager", macAddress.getValue());
+            LOG.debug("Remove MacAddress {} from HostManager", macAddress.getValue());
             macAddressMapping.remove(macAddress);
         }
     }
