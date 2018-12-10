@@ -22,6 +22,7 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.basepacket.rev140528
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.ipv4.packet.received.packet.chain.packet.Ipv4Packet;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.flushpktrpc.rev181201.FlushPktRpcService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
@@ -43,7 +44,7 @@ import java.util.concurrent.*;
 
 
 
-public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService {
+public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
     private final static int MDNS_SRC_PORT = 5353;
@@ -75,6 +76,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         notificationService.registerNotificationListener(this);
         this.notificationProvider = notificationPublishService;
         rpcProviderRegistry.addRpcImplementation(UpdateCoordinatorService.class, this);
+        rpcProviderRegistry.addRpcImplementation(FlushPktRpcService.class, this);
 
         this.flowManager = flowManager;
         this.packetDispatcher = packetDispatcher;
@@ -127,6 +129,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
         mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
     }
+
 
 
 
@@ -302,11 +305,17 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     }
 
     @Override
+    public Future<RpcResult<Void>> flushPkts() {
+        LOG.debug("Flush stored mDNS Packets");
+        flushpkts();
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
+    }
+
+    @Override
     public Future<RpcResult<Void>> updateCoordinatorList() {
         LOG.debug("Updating coordinator map");
         System.out.println("Updating coordinator list");
         JsontoArraylist();
-        flushpkts();
         return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 }
