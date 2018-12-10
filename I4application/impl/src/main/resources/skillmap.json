@@ -13,25 +13,5 @@
         "Gripper", 
         "Conveyer", 
         "Sensor"
-    ], 
-    "10.0.0.4": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.5": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.6": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.7": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
     ]
 }

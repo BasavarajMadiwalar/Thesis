@@ -463,8 +463,8 @@ public class FlowWriter {
                     .build())
                 .setPriority(10)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(720)
-                .setIdleTimeout(720)
+                .setHardTimeout(30)
+                .setIdleTimeout(0)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false,false,false,false,false));
 
@@ -858,7 +858,7 @@ public class FlowWriter {
                     .build())
                 .setPriority(10)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(0)
+                .setHardTimeout(30)
                 .setIdleTimeout(720)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false,false,false,false,false));

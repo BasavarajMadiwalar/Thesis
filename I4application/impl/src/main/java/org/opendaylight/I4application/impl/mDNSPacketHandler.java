@@ -64,9 +64,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private FlowManager flowManager;
     private PacketDispatcher packetDispatcher;
 
-
-
-
     ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
     mDNSPacketBuffer mDNSPacketBufferThrd = new mDNSPacketBuffer();
     mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(mDNSPackets);
@@ -106,8 +103,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
     public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
 
-        int srcport = 0;
-
         //Find the latest packet in the packet-chain, which is an IPv4Packet
         List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
         Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
@@ -142,7 +137,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         String mDNSPacketSring = null;
 
         ExecutorService srvRecordExecutor = Executors.newFixedThreadPool(15);
-        ArrayList<byte[]> oldlist = new ArrayList<byte[]>();
+        ArrayList<byte[]> oldlist = new ArrayList<>();
 
         @Override
         public void run() {
@@ -224,15 +219,14 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
     }
 
-    public void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
+    private void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
         ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
         int packetcount = packetList.size();
         System.out.println("Packet Count is: " + packetcount);
-        if (packetList != null){
-            for (byte[] packet:packetList){
-                boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
-                if (result) packetcount--;
-            }
+
+        for (byte[] packet:packetList){
+            boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
+            if (result) packetcount--;
         }
 
         if (packetcount != 0){
@@ -243,7 +237,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         urlRecord.remove(opcuaServer);
     }
 
-    public void sendcoordinatorpkts(Ipv4Address opcuaserver, Ipv4Address coordinator){
+    private void sendcoordinatorpkts(Ipv4Address opcuaserver, Ipv4Address coordinator){
         ArrayList<byte[]> packetList = coordinatorPackets.get(coordinator);
 
         for (byte[] packet:packetList){
@@ -252,8 +246,8 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
     }
 
-    public void coordinatorPktHandler(Ipv4Packet ipv4Packet, byte[] payload){
-        ArrayList<byte[]> oldlist = new ArrayList<byte[]>();
+    private void coordinatorPktHandler(Ipv4Packet ipv4Packet, byte[] payload){
+        ArrayList<byte[]> oldlist = new ArrayList<>();
 
 
         // Just add the packet to Hash Map with coordinator IP as key and Value as list of packets
@@ -285,6 +279,10 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
             if (coordinatorPackets.containsKey(notification.getIPAddress())){
                 LOG.debug("Remove coordinator packets for " + notification.getIPAddress());
                 coordinatorPackets.remove(notification.getIPAddress());
+            } else if (mDNSPackets.containsKey(notification.getIPAddress())) {
+                LOG.debug("Remove mDNS packets for " + notification.getIPAddress());
+                System.out.println("Remove mDNS packets for " + notification.getIPAddress());
+                mDNSPackets.remove(notification.getIPAddress());
             } else {
                 return;
             }
@@ -297,11 +295,18 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         // Do Nothing
     }
 
+    private void flushpkts(){
+        System.out.println("Removing Cached Packets");
+        coordinatorPackets.clear();
+        mDNSPackets.clear();
+    }
+
     @Override
     public Future<RpcResult<Void>> updateCoordinatorList() {
         LOG.debug("Updating coordinator map");
         System.out.println("Updating coordinator list");
         JsontoArraylist();
+        flushpkts();
         return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 }
