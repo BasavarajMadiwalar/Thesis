@@ -3,8 +3,7 @@ import os
 import logging
 import pandas as pd
 import numpy as np
-import matplotlib.pylab as plt
-
+import matplotlib.pyplot as plt
 
 log = logging.getLogger(__name__)
 
@@ -55,13 +54,27 @@ def plotResult(csvFile):
 
     plt.show()
 
+def plotBoxPlot(csvFile):
+    log.info("Plotting box Plot for time to register\n")
+
+    f = plt.figure()
+    ax = f.add_subplot(111)
+
+    coloumn = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight']
+    data = pd.read_csv(csvFile)
+    data.boxplot(by="Topology", ax=ax)
+
+    ax.set_ylabel("Time in MircorSeconds")
+    plt.show()
+
+
 if __name__ == "__main__":
 
     import argparse
 
     parser = argparse.ArgumentParser(description="Collect Results into a single CSV file")
     parser.add_argument('-sf', '--folder', type=str, help="Basefolder to collection of results", \
-                        default='/home/basavaraj/ODL/Thesis/results')
+                        default='/home/basavaraj/ODL/Thesis/old_results/06_12_dec/results')
 
     args = parser.parse_args()
 
@@ -74,7 +87,7 @@ if __name__ == "__main__":
     log.info("Collecting Timestamps and plotting mean time to register\n")
     collect_results(args.folder, fileName)
     plotResult(csvFile)
-
+    plotBoxPlot(csvFile)
 
 
 
