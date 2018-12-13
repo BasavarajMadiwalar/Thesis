@@ -375,10 +375,9 @@ if __name__== "__main__":
                 iteration -= 1
 
         stopNet(net)
-
-    copyTimeRecords(switch_count, topo[switch_count-2])
-    cleanFolders()
-    iteration = 40
+        copyTimeRecords(switch_count, topo[switch_count-2])
+        cleanFolders()
+        iteration = 40
 
     # amqp_server.send_signal(SIGTERM)
     duration = time() - start_time
