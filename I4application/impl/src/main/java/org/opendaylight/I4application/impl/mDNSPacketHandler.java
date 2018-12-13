@@ -302,6 +302,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         System.out.println("Removing Cached Packets");
         coordinatorPackets.clear();
         mDNSPackets.clear();
+        urlRecord.clear();
     }
 
     @Override

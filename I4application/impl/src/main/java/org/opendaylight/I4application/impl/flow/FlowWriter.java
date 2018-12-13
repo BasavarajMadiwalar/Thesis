@@ -14,9 +14,12 @@
 package org.opendaylight.I4application.impl.flow;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
 import org.opendaylight.I4application.impl.Topology.HostManager;
 import org.opendaylight.I4application.impl.utils.InstanceIdentifierUtils;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
+import org.opendaylight.controller.md.sal.binding.api.NotificationService;
+import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
 import org.opendaylight.openflowplugin.api.OFConstants;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.*;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev130715.MacAddress;
@@ -81,9 +84,14 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._3.match.Ipv4MatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.model.match.types.rev131026.match.layer._4.match.UdpMatchBuilder;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ethernet.rev140528.KnownEtherType;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.flushgrouptable.rev181201.FlushGroupTableService;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.network.topology.topology.Link;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
+import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -95,7 +103,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 
-public class FlowWriter {
+public class FlowWriter implements HostNotificationListener, FlushGroupTableService {
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.flow.FlowWriter.class);
 
     private AtomicLong flowCookieInc = new AtomicLong(0x4a00000000000000L);
@@ -104,6 +112,9 @@ public class FlowWriter {
     private final String FLOW_ID_PREFIX = "L2switch-normal-";
     private final String MDNS_FLOW_ID_PREFIX = "L2switch-mDNS-";
     private List<Link> path = null;
+    private HashMap<Ipv4Address, Long> groupIdTable= new HashMap<>();
+    private AtomicLong groupIdInc =  new AtomicLong();
+
 
     /* Variable related to mDNS groups and reverse flow */
     private HashMap<NodeId, HashMap<Ipv4Address, ArrayList<NodeConnectorRef>>> groupTable =
@@ -116,10 +127,14 @@ public class FlowWriter {
     private SalFlowService salFlowService;
     private SalGroupService salGroupService;
 
-    public FlowWriter(SalFlowService salFlowService, DataBroker dataBroker, SalGroupService salGroupService) {
+    public FlowWriter(SalFlowService salFlowService, DataBroker dataBroker
+                      , NotificationService notificationService, SalGroupService salGroupService
+                      , RpcProviderRegistry rpcProviderRegistry) {
         this.salFlowService = salFlowService;
         this.dataBroker = dataBroker;
         this.salGroupService = salGroupService;
+        notificationService.registerNotificationListener(this);
+        rpcProviderRegistry.addRpcImplementation(FlushGroupTableService.class, this);
     }
 
     /**
@@ -294,12 +309,6 @@ public class FlowWriter {
                 .setLayer3Match(ipv4Match)
                 .build();
 
-        //Create a match and set both IP and ethernetMactch
-        //MatchBuilder matchBuilder = new MatchBuilder();
-        //matchBuilder.setEthernetMatch(ethernetMatchBuilder.build());
-        //matchBuilder.setLayer3Match(ipv4MatchBuilder.build());
-        //Match match = matchBuilder.build();
-
         // Creat an Action that forwards packet to dstport upon succesful match
 
         Uri destPortUri = dstPort.getValue().firstKeyOf(NodeConnector.class, NodeConnectorKey.class).getId();
@@ -333,11 +342,12 @@ public class FlowWriter {
                 .setPriority(1000)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
                 .setHardTimeout(0)
-                .setIdleTimeout(1200)
+                .setIdleTimeout(15)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false, false, false, false, false));
         return flowBuilder.build();
     }
+
 
 
     /* Below Section of code is used for setting up mDNS Packet Flows */
@@ -463,7 +473,7 @@ public class FlowWriter {
                     .build())
                 .setPriority(10)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(30)
+                .setHardTimeout(35)
                 .setIdleTimeout(0)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false,false,false,false,false));
@@ -599,7 +609,9 @@ public class FlowWriter {
                         newPortList = (groupTable.get(currentNodeId)).get(coordinator);
                     }else {
                         LOG.info("Port Already exist" + dstNCRef);
-                        newPortList = (groupTable.get(currentNodeId)).get(coordinator);
+//                        Commented below line and added return to avoid frequent group updation, if port list has not changed
+//                        newPortList = (groupTable.get(currentNodeId)).get(coordinator);
+                        return;
                     }
                 }catch (Exception e){
                     LOG.debug("Could not add Port to coordinator port list");
@@ -645,8 +657,14 @@ public class FlowWriter {
         LOG.info("Creating Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
-        long groupId = coordinator.hashCode();
-
+        Long groupId = 0L;
+        if (!(groupIdTable.containsKey(coordinator.getValue()))){
+            groupId = groupIdInc.getAndIncrement();
+            groupIdTable.put(coordinator, new Long(groupId));
+        }else{
+            groupId = groupIdTable.get(coordinator);
+        }
+        System.out.println("Created Group Id: "+ groupId);
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
 
@@ -695,7 +713,9 @@ public class FlowWriter {
         LOG.info("Creating Original Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
-        long groupId = coordinator.hashCode();
+//        long groupId = coordinator.getValue().hashCode();
+        Long groupId = groupIdTable.get(coordinator);
+        System.out.println("Original Group Id" + groupId);
 
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
@@ -746,7 +766,9 @@ public class FlowWriter {
         LOG.info("Creating Updated Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
-        long groupId = coordinator.hashCode();
+//        long groupId = coordinator.getValue().hashCode();
+        Long groupId = groupIdTable.get(coordinator);
+        System.out.println("Updated Group"+ groupId);
 
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
@@ -797,7 +819,8 @@ public class FlowWriter {
     public Flow createMulticastgroupflow(Ipv4Address coordinator, Ipv4Address dstIP, NodeConnectorRef dstPort){
         LOG.info("Create Multicast Group");
 
-        long groupid = coordinator.hashCode();
+//        long groupid = coordinator.hashCode();
+        Long groupId = groupIdTable.get(coordinator);
 
         FlowBuilder flowBuilder = new FlowBuilder().setTableId(flowTableId).setFlowName("MULTICAST_FLOW");
         flowBuilder.setId(new FlowId(Long.toString(flowBuilder.hashCode())));
@@ -834,7 +857,7 @@ public class FlowWriter {
                                         .build();
 
         GroupAction groupAction = new GroupActionBuilder()
-                                .setGroupId(groupid)
+                                .setGroupId(groupId)
                                 .setGroup("mDNS Multicast")
                                 .build();
 
@@ -858,7 +881,7 @@ public class FlowWriter {
                     .build())
                 .setPriority(10)
                 .setBufferId(OFConstants.OFP_NO_BUFFER)
-                .setHardTimeout(30)
+                .setHardTimeout(35)
                 .setIdleTimeout(720)
                 .setCookie(new FlowCookie(BigInteger.valueOf(flowCookieInc.getAndIncrement())))
                 .setFlags(new FlowModFlags(false,false,false,false,false));
@@ -901,5 +924,37 @@ public class FlowWriter {
         builder.setUpdatedGroup(newGroup).build();
 
         return salGroupService.updateGroup(builder.build());
+    }
+
+    @Override
+    public void onHostRemovedNotification(HostRemovedNotification notification) {
+        LOG.debug("Remove GroupId Entry");
+
+        for (NodeId nodeId: groupTable.keySet()){
+            if (groupTable.get(nodeId).containsKey(notification.getIPAddress())){
+                System.out.println("Removing Group Table entry for: " + notification.getIPAddress());
+                groupTable.remove(nodeId);
+            }
+        }
+
+        if (groupIdTable.containsKey(notification.getIPAddress())){
+            System.out.println("Removeing Group Id for: " + notification.getIPAddress());
+            groupIdTable.remove(notification.getIPAddress());
+        }
+    }
+
+    @Override
+    public void onHostAddedNotification(HostAddedNotification notification) {
+
+    }
+
+    @Override
+    public Future<RpcResult<Void>> flushGrpTable() {
+        LOG.debug("Flush Group Table Entries");
+        System.out.println("Clear Group Table");
+        groupTable.clear();
+        groupIdTable.clear();
+        groupIdInc.set(0L);
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 }

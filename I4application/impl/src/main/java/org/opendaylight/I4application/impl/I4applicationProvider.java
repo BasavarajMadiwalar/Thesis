@@ -80,7 +80,7 @@ public class I4applicationProvider {
          *
          */
 
-        FlowWriter flowWriter = new FlowWriter(salFlowService, dataBroker, salGroupService); // In Future need to pass SALGroup Serive for flow writing
+        FlowWriter flowWriter = new FlowWriter(salFlowService, dataBroker, notificationService, salGroupService, rpcProviderRegistry); // In Future need to pass SALGroup Serive for flow writing
 
         /**
          * Create a Flow Manager and pass and Instance of Host Manager
