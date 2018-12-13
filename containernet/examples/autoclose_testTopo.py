@@ -19,7 +19,8 @@ import os
 from shutil import copytree, copyfile, rmtree
 import requests
 
-def createNet(switchcount, ipMap):
+
+def createNet(switchcount,ipMap):
 
 
     net = Containernet(controller=None)
@@ -75,7 +76,7 @@ def createNet(switchcount, ipMap):
     info('*** Running script to configure host names\n')
     for host in hosts_list:
         host.cmd("./root/opcua/hostnamegen.sh %d" %device_id)
-        sleep(0.5)
+        sleep(0.25)
 
 
     info('*** Testing connectivity\n')
@@ -287,28 +288,42 @@ def makeRpc(url):
     print r
     s =  requests.post('http://localhost:8181/restconf/operations/updateCoordinator:update-coordinator-list', auth=('admin', 'admin'))
 
+
 def flushPackets(url):
     info("**** Flush stored Packets\n")
     r = requests.post(url, auth=('admin', 'admin'))
 
-def checkStatus(pid):
-    poll = pid.poll()
-    if(poll==None):
-        return True
-    else:
-        return False
 
-def start_server():
+def checkStatus():
+    cnt = 0
+    for pid in amqp_server_pid:
+        poll = pid.poll()
+        if poll is not None:
+            amqp_server_pid.remove(pid)
+            cnt += 1
+        else:
+            continue
+    return cnt
+
+
+def start_server(count):
     info("**** Starting amqp server\n")
     arg = ["sudo", "ip", "netns", "exec", "opcuaclient", "./server"]
-    proc = subprocess.Popen(arg)
-    return proc
+    for cnt in range(1, count+1):
+        amqp_server_pid.append(subprocess.Popen(arg))
+    # proc = subprocess.Popen(arg)
+    # return proc
+
 
 def purge_messages():
     info("**** Purge ActiveMQ queue\n")
     subprocess.call(["/home/basavaraj/dev/apache-activemq-5.15.6/bin/activemq", "purge", "queue"])
     sleep(5)
 
+
+def flush_grouptable():
+    info("**** Clearing Group Table\n")
+    requests.post('http://localhost:8181/restconf/operations/FlushGroupTable:flushGrpTable', auth=('admin', 'admin'))
 
 if __name__== "__main__":
     setLogLevel('info')
@@ -317,19 +332,19 @@ if __name__== "__main__":
     args= parser.parse_args()
 
     url = 'http://localhost:8181/restconf/operations/updateSkills:update-skills-map'
-    topo = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight']
+    topo = ['2', '3', '4', '5', '6', '8', '7', '9', '10', '11', '12', '13', '14']
     url2 = 'http://localhost:8181/restconf/operations/updateCoordinator:update-coordinator-list'
     url3 = "http://localhost:8181/restconf/operations/flushPktRpc:flushPkts"
 
-    iteration = 50
-
+    iteration = 40
     start_time = time()
-    # makeRpc(url)
-    # cleanFolders()
+    makeRpc(url)
+    cleanFolders()
+    amqp_server_pid = []
+    count = 5
+    start_server(count)
 
-    amqp_server = start_server()
-
-    for switch_count in range (2, args.switches+1):
+    for switch_count in range (2, args.switches+1, 2):
 
         updatefolders(switch_count)
         IpMap = createIpMap((switch_count))
@@ -346,10 +361,13 @@ if __name__== "__main__":
         while iteration:
             runProgram(net, switch_count)
             flushPackets(url3)
+            flush_grouptable()
             sleep(5)
-            if(not(checkStatus(amqp_server))):
+            count = checkStatus()
+            if(count):
                 purge_messages()
-                amqp_server = start_server()
+                start_server(count)
+                iteration -= 1
             else:
                 logfile = open('Testlog', 'a+')
                 logfile.write('Topology: %d and iteration: %d \n' % (switch_count, iteration))
@@ -357,11 +375,12 @@ if __name__== "__main__":
                 iteration -= 1
 
         stopNet(net)
-        copyTimeRecords(switch_count, topo[switch_count-2])
-        cleanFolders()
-        iteration = 50
 
-    amqp_server.send_signal(SIGTERM)
+    copyTimeRecords(switch_count, topo[switch_count-2])
+    cleanFolders()
+    iteration = 40
+
+    # amqp_server.send_signal(SIGTERM)
     duration = time() - start_time
 
     info("Time to complete Measurement is:" + str(duration))
