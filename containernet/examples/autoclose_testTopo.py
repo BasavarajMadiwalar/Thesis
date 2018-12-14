@@ -4,13 +4,11 @@ This is the base script for containernet topology generation.
 
 """
 from mininet.net import Containernet
-from mininet.cli import CLI
-from mininet.link import TCLink
 from mininet.log import info, setLogLevel
 from mininet.node import RemoteController
 from mininet.util import pmonitor
 from time import time
-from signal import SIGINT, SIGTERM
+from signal import SIGINT
 import subprocess
 from time import sleep
 import argparse
@@ -18,10 +16,10 @@ import json
 import os
 from shutil import copytree, copyfile, rmtree
 import requests
+import random
 
 
-def createNet(switchcount,ipMap):
-
+def create_net():
 
     net = Containernet(controller=None)
     info('*** Adding controller\n')
@@ -30,28 +28,28 @@ def createNet(switchcount,ipMap):
 
     info('*** Adding switches\n')
     switch_list = []
-    for i in range(1, switchcount+1):
+    for i in range(1, switch_count+1):
         switch_list.append(net.addSwitch('s'+str(i)))
 
     switch_opcua_map = {}
-    macMap = createMacMap(switchcount)
 
     # Here we create switch to coordinator map
     info('*** Adding coordinator docker containers\n')
     device_id = 1
     switch_coordinator = {}
-    for i in range(1, switchcount+1):
-        switch_coordinator['s'+str(i)] = net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],mac=macMap['d'+str(device_id)],\
-                dimage="ubuntu:trusty", volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)])
-        device_id=device_id+1
+    for i in range(1, switch_count+1):
+        switch_coordinator['s'+str(i)] = net.addDocker('d'+str(device_id), ip=ip_map['d'+str(device_id)],
+            mac=mac_map['d'+str(device_id)],
+                dimage="ubuntu:trusty", volumes=[test_device_folders+'s%d/d%d:/root/opcua' % (i, device_id)])
+        device_id = device_id+1
 
     # Add opc-ua servers to switch_opcua Map
     info('*** Adding opc-ua server docker containers\n')
-    for i in range(1, switchcount+1):
+    for i in range(1, switch_count+1):
         opcua_servers = []
-        for k in range(1, 4):
-            opcua_servers.append(net.addDocker('d'+str(device_id), ip=ipMap['d'+str(device_id)],mac=macMap['d'+str(device_id)],\
-                dimage="ubuntu:trusty",volumes=['/home/basavaraj/Th/Testbed/s%d/d%d:/root/opcua' % (i, device_id)]))
+        for n in range(1, 4):
+            opcua_servers.append(net.addDocker('d'+str(device_id), ip=ip_map['d'+str(device_id)],mac=mac_map['d'+str(device_id)],
+                dimage="ubuntu:trusty",volumes=[test_device_folders+'s%d/d%d:/root/opcua' % (i, device_id)]))
             device_id = device_id+1
         switch_opcua_map['s'+str(i)] = opcua_servers
 
@@ -78,7 +76,6 @@ def createNet(switchcount,ipMap):
         host.cmd("./root/opcua/hostnamegen.sh %d" %device_id)
         sleep(0.25)
 
-
     info('*** Testing connectivity\n')
     for host_id in range(1, len(hosts_list)):
         net.ping([hosts_list[0], hosts_list[host_id]])
@@ -91,68 +88,60 @@ def createNet(switchcount,ipMap):
     # net.stop()
 
 
-# Method used to create map of HostName to IP address Map
-def createIpMap(switchcount):
+def create_ip_map():
+    info("**** Creating IP Map\n")
+    for i in range(1, (switch_count*4)+1):
+        ip_map['d'+str(i)] = "10.0.0."+str(i)
 
-    ipMap = {}
 
-    for i in range(1, (switchcount*4)+1):
-        ipMap['d'+str(i)] = "10.0.0."+str(i)
-
-    return ipMap
-
-def createMacMap(switchcount):
+def create_mac_map():
     base_mac = "00:00:00:00:00:"
-    macMap = {}
 
-    for id in range(1, (switchcount*4)+1):
-        if(id>15):
-            macMap['d'+str(id)] = base_mac+hex(id).lstrip("0x")
+    for k in range(1, (switch_count*4)+1):
+        if k > 15:
+            mac_map['d'+str(k)] = base_mac+hex(k).lstrip("0x")
         else:
-            macMap['d'+str(id)] = base_mac+'0'+hex(id).lstrip("0x")
-
-    return macMap
+            mac_map['d'+str(k)] = base_mac+'0'+hex(k).lstrip("0x")
 
 
-def runProgram(net, switch_count):
+def run_program():
     info('*** Collecting Host List\n')
 
-    # Get list of hosts
-    hosts = net.hosts
+    hosts = net.hosts        # Get list of hosts
     opcua_server_count = switch_count*3
-    ldsservers = hosts[0:switch_count]
+    lds_servers = hosts[0:switch_count]
     opcua = hosts[switch_count:opcua_server_count+switch_count]
+    random.shuffle(opcua)        # Randomize the hosts order to mimic random boot order
 
-    popens1 = {}
-    popens2 = {}
+    lds_pid_map = {}
+    opcua_pid_map = {}
 
-    for lds in ldsservers:
-        popens1[lds] = lds.popen(['./root/opcua/ldsserver'],shell=False)
+    for lds in lds_servers:
+        lds_pid_map[lds] = lds.popen(['./root/opcua/ldsserver'])
         sleep(0.5)
-
     sleep(3)
 
     for opcua_server in opcua:
-        popens2[opcua_server] = opcua_server.popen(["./root/opcua/server_multicast1"])
+        opcua_pid_map[opcua_server] = opcua_server.popen(["./root/opcua/server_multicast1"])
 
-    endtime = time() + 40
-    endtime1 = time() + 45
-    info("Monitoring the output for", 45 , "seconds\n")
+    end_time_opcua = time() + 40
+    end_time_lds = time() + 45
 
-    for h, line in pmonitor(popens2, timeoutms=250):
+    info("Monitoring the output for", 45, "seconds\n")
+    for h, line in pmonitor(opcua_pid_map, timeoutms=250):
         if h:
-            info('<%s>: %s' % ( h.name, line ))
+            info('<%s>: %s' % (h.name, line))
 
-        if time() >= endtime:
-            for p in popens2.values():
+        if time() >= end_time_opcua:
+            for p in opcua_pid_map.values():
                 p.send_signal(SIGINT)
 
-    for h, line in pmonitor(popens1, timeoutms=250):
+    for h, line in pmonitor(lds_pid_map, timeoutms=250):
         if h:
-            info('<%s>: %s' % ( h.name, line ))
+            info('<%s>: %s' % (h.name, line))
 
-        if time() >= endtime1:
-            for p in popens1.values():
+        if time() >= end_time_lds:
+            for p in lds_pid_map.values():
                 p.send_signal(SIGINT)
 
 
@@ -161,65 +150,40 @@ def runProgram(net, switch_count):
     # info('*** Stopping network')
     # net.stop()
 
-def runOPCUA_server(net, switch_count):
-    info("**** Running OPC-UA server applications")
 
-    # Get list of hosts
-    hosts = net.hosts
-    opcua_server_count = switch_count * 3
-    opcua = hosts[switch_count:opcua_server_count + switch_count]
-
-    popens2 = {}
-
-    for opcua_server in opcua:
-        popens2[opcua_server] = opcua_server.popen(["./root/opcua/server_multicast1"])
-
-    endtime = time() + 35
-    info("Monitoring the output for", 40, "seconds\n")
-
-    for h, line in pmonitor(popens2, timeoutms=250):
-        if h:
-            info('<%s>: %s' % (h.name, line))
-
-        if time() >= endtime:
-            for p in popens2.values():
-                p.send_signal(SIGINT)
-
-
-def stopNet(net):
+def stop_net(net):
     info("**** Stopping Mininet Network")
-
     net.stop()
 
 
-def createSkillMap(switch_count,IpMap):
+def create_skill_map():
 
     info("*-*- Creating coordinator Skill Map\n")
-
-    skill_list = ["Gripper", "Conveyer", "Sensor"]
     skill_map = {}
 
     for switch_id in range(1, switch_count+1):
-        skill_map[IpMap['d'+str(switch_id)]] = skill_list
+        skill_map[ip_map['d'+str(switch_id)]] = skill_list
 
     with open('../../I4application/impl/src/main/resources/skillmap.json', 'w') as file:
         json.dump(skill_map, file, sort_keys=True, indent=4)
 
-def create_coordinatorList(switch_count, IpMap):
+
+def create_coordinator_list():
     info("*-*- Creating coordinator list\n")
 
     coordinator_list = []
     coordinator_map = {}
 
     for i in range(1, switch_count+1):
-        coordinator_list.append(IpMap['d'+str(i)])
+        coordinator_list.append(ip_map['d'+str(i)])
 
     coordinator_map["coordinators"] = coordinator_list
 
     with open('../../I4application/impl/src/main/resources/coordinatorList.json', 'w') as file:
         json.dump(coordinator_map, file, sort_keys=True, indent=4)
 
-def updateHostnames(IpMap):
+
+def update_hostnames():
     info("*** Updating hostnames in Local Hosts\n")
 
     with open('/etc/hosts') as oldfile:
@@ -230,71 +194,69 @@ def updateHostnames(IpMap):
                 else:
                     newfile.write(line)
 
-
     with open('/etc/newhosts', 'a') as newfile:
-        for key,value in IpMap.items():
+        for key,value in ip_map.items():
             newfile.write("%s  %s\n"%(value, key))
 
     os.remove('/etc/hosts')
     os.rename('/etc/newhosts', '/etc/hosts')
 
-def updatefolders(switch_count):
-    skill_list = ['Gripper', 'Conveyer', 'Sensor']
 
-    # Create first level folder for switches
-    for switch_id in range(1, switch_count + 1):
-        os.makedirs('/home/basavaraj/Th/Testbed/s' + str(switch_id), mode=0o777)
+def update_folders(switch_count):
+
+    for switch_id in range(1, switch_count + 1):            # Create first level folder for switches
+        os.makedirs(test_device_folders+'s' + str(switch_id), mode=0o777)
 
     device_id = 1
     for switch_id in range(1, switch_count + 1):
-        copytree('/home/basavaraj/pythontest/coord', '/home/basavaraj/Th/Testbed/s%d/d%d' % (switch_id, device_id))
+        copytree(base_folders+'coord', test_device_folders+'s%d/d%d' % (switch_id, device_id))
         device_id += 1
 
     for switch_id in range(1, switch_count + 1):
-        copytree('/home/basavaraj/pythontest/Gripper', '/home/basavaraj/Th/Testbed/s%d/d%d' % (switch_id, device_id))
-        copytree('/home/basavaraj/pythontest/Conveyer', '/home/basavaraj/Th/Testbed/s%d/d%d' % (switch_id, device_id + 1))
-        copytree('/home/basavaraj/pythontest/Sensor', '/home/basavaraj/Th/Testbed/s%d/d%d' % (switch_id, device_id + 2))
+        copytree(base_folders+skill_list[0], test_device_folders+'s%d/d%d' % (switch_id, device_id))
+        copytree(base_folders+skill_list[1], test_device_folders+'s%d/d%d' % (switch_id, device_id + 1))
+        copytree(base_folders+skill_list[2], test_device_folders+'s%d/d%d' % (switch_id, device_id + 2))
         device_id += 3
 
-def copyTimeRecords(switch_count, topology_id):
+
+def copy_time_records(switch_count, topology_id):
     info("**** Copying timestamp records to Results folder\n")
     device_id = switch_count+1
 
-    # Create the directory first, as shutil copy throws an error if directory doesn't exist
-    # Then copy the files
-    for switch_id in range(1, switch_count+1):
-        os.makedirs('/home/basavaraj/ODL/Thesis/results/%s/d%d'%(topology_id, device_id))
-        copyfile('/home/basavaraj/Th/Testbed/s%d/d%d/timestamp.txt'%(switch_id, device_id), \
-                 '/home/basavaraj/ODL/Thesis/results/%s/d%d/timestamp.txt'%(topology_id, device_id))
+    for switch_id in range(1, switch_count+1):                  # Create the directory first, as shutil copy throws an
+        os.makedirs(results_folder+'%s/d%d'%(topology_id, device_id))       # error if directory doesn't exist
+        copyfile(test_device_folders+'s%d/d%d/timestamp.txt'%(switch_id, device_id),
+                 results_folder+'%s/d%d/timestamp.txt'%(topology_id, device_id))
 
-        os.makedirs('/home/basavaraj/ODL/Thesis/results/%s/d%d' % (topology_id, device_id + 1))
-        copyfile('/home/basavaraj/Th/Testbed/s%d/d%d/timestamp.txt' % (switch_id, device_id+1),\
-                 '/home/basavaraj/ODL/Thesis/results/%s/d%d/timestamp.txt' % (topology_id, device_id+1))
+        os.makedirs(results_folder+'%s/d%d' % (topology_id, device_id + 1))
+        copyfile(test_device_folders+'s%d/d%d/timestamp.txt' % (switch_id, device_id+1),
+                 results_folder+'%s/d%d/timestamp.txt' % (topology_id, device_id+1))
 
-        os.makedirs('/home/basavaraj/ODL/Thesis/results/%s/d%d' % (topology_id, device_id + 2))
-        copyfile('/home/basavaraj/Th/Testbed/s%d/d%d/timestamp.txt' % (switch_id, device_id+2),\
-                 '/home/basavaraj/ODL/Thesis/results/%s/d%d/timestamp.txt' % (topology_id, device_id+2))
+        os.makedirs(results_folder+'%s/d%d' % (topology_id, device_id + 2))
+        copyfile(test_device_folders+'s%d/d%d/timestamp.txt' % (switch_id, device_id+2),
+                 results_folder+'%s/d%d/timestamp.txt' % (topology_id, device_id+2))
 
         device_id += 3
 
-def cleanFolders():
+
+def clean_folders():
     info("**** Removing Folders in TestBed\n")
-    path = '/home/basavaraj/Th/Testbed/'
-    rmtree(path)
+    rmtree(test_device_folders)
 
-def makeRpc(url):
+
+def make_rpc():
     info("**** Making an RPC Call to update SkillMap\n")
-    r = requests.post(url, auth=('admin', 'admin'))
+    requests.post(url1, auth=('admin', 'admin'))
+    r = requests.post(url2, auth=('admin', 'admin'))
     print r
-    s =  requests.post('http://localhost:8181/restconf/operations/updateCoordinator:update-coordinator-list', auth=('admin', 'admin'))
 
 
-def flushPackets(url):
+def flush_packets():
     info("**** Flush stored Packets\n")
-    r = requests.post(url, auth=('admin', 'admin'))
+    requests.post(url3, auth=('admin', 'admin'))
 
 
-def checkStatus():
+def check_status():
     cnt = 0
     for pid in amqp_server_pid:
         poll = pid.poll()
@@ -311,8 +273,6 @@ def start_server(count):
     arg = ["sudo", "ip", "netns", "exec", "opcuaclient", "./server"]
     for cnt in range(1, count+1):
         amqp_server_pid.append(subprocess.Popen(arg))
-    # proc = subprocess.Popen(arg)
-    # return proc
 
 
 def purge_messages():
@@ -321,50 +281,56 @@ def purge_messages():
     sleep(5)
 
 
-def flush_grouptable():
+def flush_group_table():
     info("**** Clearing Group Table\n")
-    requests.post('http://localhost:8181/restconf/operations/FlushGroupTable:flushGrpTable', auth=('admin', 'admin'))
+    requests.post(url4, auth=('admin', 'admin'))
 
-if __name__== "__main__":
+if __name__ == "__main__":
+
     setLogLevel('info')
     parser = argparse.ArgumentParser(description="Test Script to generate mininet topology")
     parser.add_argument('-sc', '--switches', type=int, help="Switch count for topology", default=2)
-    args= parser.parse_args()
+    args = parser.parse_args()
 
-    url = 'http://localhost:8181/restconf/operations/updateSkills:update-skills-map'
-    topo = ['2', '3', '4', '5', '6', '8', '7', '9', '10', '11', '12', '13', '14']
+    url1 = 'http://localhost:8181/restconf/operations/updateSkills:update-skills-map'
     url2 = 'http://localhost:8181/restconf/operations/updateCoordinator:update-coordinator-list'
     url3 = "http://localhost:8181/restconf/operations/flushPktRpc:flushPkts"
+    url4 = 'http://localhost:8181/restconf/operations/FlushGroupTable:flushGrpTable'
 
-    iteration = 40
+    base_folders = "/home/basavaraj/ODL/test_folder/base_folders/"      #holds executables
+    test_device_folders = "/home/basavaraj/Th/opcua_mDNS/test_device_folders/"   # holds_test device folders
+    results_folder = "/home/basavaraj/Th/opcua_mDNS/results/"       # holds results
+
+    ip_map = {}
+    mac_map = {}
+    skill_list = ["Gripper", "Conveyer", "Sensor"]
+    topology = [k for k in range(2, args.switches+1)]
+
+    iteration = 2
     start_time = time()
-    makeRpc(url)
-    cleanFolders()
     amqp_server_pid = []
     count = 5
     start_server(count)
 
-    for switch_count in range (2, args.switches+1, 2):
+    for switch_count in range(2, args.switches+1, 2):
 
-        updatefolders(switch_count)
-        IpMap = createIpMap((switch_count))
-        updateHostnames(IpMap)
-
-        # Uncomment below only when topology is changed
-        createSkillMap(switch_count, IpMap)
-        create_coordinatorList(switch_count, IpMap)
-        # Make an RPC call
-        makeRpc(url)
+        update_folders(switch_count)
+        create_ip_map()
+        create_mac_map()
+        update_hostnames()
+        create_skill_map()
+        create_coordinator_list()
+        make_rpc()          # Make an RPC to ODL to update the Skill Map and flush old packets
         sleep(3)
-        net = createNet(switch_count, IpMap)
+        net = create_net()
 
         while iteration:
-            runProgram(net, switch_count)
-            flushPackets(url3)
-            flush_grouptable()
+            run_program()
+            flush_packets()
+            flush_group_table()
             sleep(5)
-            count = checkStatus()
-            if(count):
+            count = check_status()
+            if count:
                 purge_messages()
                 start_server(count)
                 iteration -= 1
@@ -374,12 +340,12 @@ if __name__== "__main__":
                 logfile.close()
                 iteration -= 1
 
-        stopNet(net)
-        copyTimeRecords(switch_count, topo[switch_count-2])
-        cleanFolders()
-        iteration = 40
+        stop_net(net)
+        copy_time_records(switch_count, str(topology[switch_count-2]))
+        clean_folders()
+        iteration = 2
 
     # amqp_server.send_signal(SIGTERM)
     duration = time() - start_time
 
-    info("Time to complete Measurement is:" + str(duration))
+    info("Time to complete Measurement is: %d\n" % duration)
