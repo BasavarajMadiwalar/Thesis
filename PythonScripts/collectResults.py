@@ -32,7 +32,12 @@ def plotResult(csvFile):
 
     mean_duration = {}
     data = pd.read_csv(csvFile)
+    
+    # Drop the row whose duration is more than 45 sec and less than 1 sec.
+    data.drop(data[data['duration'] > 8000000].index, inplace=True)	
+    data.drop(data[data['duration'] < 800000].index, inplace=True)    
 
+	
     # Group the data based on topology name
     grp_by_topo = data.groupby('Topology')
 
@@ -50,7 +55,7 @@ def plotResult(csvFile):
     ax.set_title('Time for first register')
 
     for key, val in mean_duration.items():
-        ax.plot(key, val*1e+6,'bo')
+        ax.plot(key, val*1e-6,'bo')
 
     plt.show()
 
@@ -62,6 +67,11 @@ def plotBoxPlot(csvFile):
 
     coloumn = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight']
     data = pd.read_csv(csvFile)
+    # Drop the row whose duration is more than 45 sec and less than 1 sec.
+    data.drop(data[data['duration'] > 8000000].index, inplace=True)	
+    data.drop(data[data['duration'] < 800000].index, inplace=True)
+	
+
     data.boxplot(by="Topology", ax=ax)
 
     ax.set_ylabel("Time in MircorSeconds")
@@ -74,7 +84,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Collect Results into a single CSV file")
     parser.add_argument('-sf', '--folder', type=str, help="Basefolder to collection of results", \
-                        default='/home/basavaraj/ODL/Thesis/old_results/06_12_dec/results')
+                        default='/home/basavaraj/Th/opcua_mDNS/Results/14_Dec')
 
     args = parser.parse_args()
 
@@ -85,7 +95,7 @@ if __name__ == "__main__":
     csvFile = 'collect.csv'
 
     log.info("Collecting Timestamps and plotting mean time to register\n")
-    collect_results(args.folder, fileName)
+    # collect_results(args.folder, fileName)
     plotResult(csvFile)
     plotBoxPlot(csvFile)
 
