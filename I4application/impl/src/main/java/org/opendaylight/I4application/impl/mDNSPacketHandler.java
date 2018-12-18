@@ -66,6 +66,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private PacketDispatcher packetDispatcher;
 
     ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
+    ExecutorService checkUDPExecutor =  Executors.newFixedThreadPool(10);
     mDNSPacketBuffer mDNSPacketBufferThrd = new mDNSPacketBuffer();
     mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(mDNSPackets);
 
@@ -99,7 +100,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
 
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
-        LOG.info("Received an Ipv4 Packet");
+        LOG.debug("Received an Ipv4 Packet");
         checkUDPacket(notification);
     }
 
@@ -129,8 +130,6 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
         mDNSPacketExecutor.submit(mDNSPacketBufferThrd);
     }
-
-
 
 
     class mDNSPacketBuffer implements Runnable {
@@ -225,7 +224,7 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     private void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
         ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
         int packetcount = packetList.size();
-        System.out.println("Packet Count is: " + packetcount);
+//        System.out.println("Packet Count is: " + packetcount);
 
         for (byte[] packet:packetList){
             boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);

@@ -664,7 +664,6 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         }else{
             groupId = groupIdTable.get(coordinator);
         }
-        System.out.println("Created Group Id: "+ groupId);
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
 
@@ -713,9 +712,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         LOG.info("Creating Original Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
-//        long groupId = coordinator.getValue().hashCode();
         Long groupId = groupIdTable.get(coordinator);
-        System.out.println("Original Group Id" + groupId);
 
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
@@ -766,9 +763,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         LOG.info("Creating Updated Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
-//        long groupId = coordinator.getValue().hashCode();
         Long groupId = groupIdTable.get(coordinator);
-        System.out.println("Updated Group"+ groupId);
 
         // Create a bucket and associated action for each port
         for (NodeConnectorRef dstPort : portlist){
@@ -951,7 +946,6 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     @Override
     public Future<RpcResult<Void>> flushGrpTable() {
         LOG.debug("Flush Group Table Entries");
-        System.out.println("Clear Group Table");
         groupTable.clear();
         groupIdTable.clear();
         groupIdInc.set(0L);
