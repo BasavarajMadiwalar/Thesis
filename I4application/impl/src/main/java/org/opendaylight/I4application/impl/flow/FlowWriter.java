@@ -630,7 +630,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
 
     public void addGroup(Ipv4Address coordinator, NodeConnectorRef dstNCRef, Group group){
 
-        InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, coordinator);
+        InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, groupIdTable.get(coordinator));
         Future<RpcResult<AddGroupOutput>> future = addGrouptoConfigfData(groupIID, group);
 
         try {
@@ -647,7 +647,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     public void updateGroup(Ipv4Address coordinator, NodeConnectorRef dstNCRef, OriginalGroup oldGroup, UpdatedGroup newGroup){
         LOG.info("Updating Group");
 
-        InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, coordinator);
+        InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, groupIdTable.get(coordinator));
         Future<RpcResult<UpdateGroupOutput>> future = updateGrouptoConfigData(groupIID, oldGroup, newGroup);
     }
 

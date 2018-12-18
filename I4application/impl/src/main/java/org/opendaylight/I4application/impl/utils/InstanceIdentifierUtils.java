@@ -7,7 +7,6 @@
  */
 package org.opendaylight.I4application.impl.utils;
 
-import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.FlowCapableNode;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.Table;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.TableKey;
@@ -160,8 +159,8 @@ public final class InstanceIdentifierUtils {
     /* Create an Instance Identifier for Group.
        Since group is a child of Node, we also create the identifier for Node*/
     public static InstanceIdentifier<Group> generateGroupInstanceIdentifier(final NodeConnectorRef nodeConnectorRef,
-                                                                            Ipv4Address coordinator) {
-        long groupId = coordinator.hashCode();
+                                                                            Long groupId) {
+
         InstanceIdentifier<Group> groupIID = generateNodeInstanceIdentifier(nodeConnectorRef).builder()
                                             .augmentation(FlowCapableNode.class)
                                             .child(Group.class, new GroupKey(new GroupId(groupId)))

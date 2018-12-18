@@ -101,7 +101,8 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
         LOG.debug("Received an Ipv4 Packet");
-        checkUDPacket(notification);
+//        checkUDPacket(notification);
+        CompletableFuture.runAsync(()->checkUDPacket(notification), checkUDPExecutor);
     }
 
     public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
