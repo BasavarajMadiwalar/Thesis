@@ -17,7 +17,8 @@ import os
 from shutil import copytree, copyfile, rmtree
 import requests
 import random
-
+import paramiko
+from scp import SCPClient
 
 def create_net():
 
@@ -164,7 +165,7 @@ def create_skill_map():
     for switch_id in range(1, switch_count+1):
         skill_map[ip_map['d'+str(switch_id)]] = skill_list
 
-    with open('../../I4application/impl/src/main/resources/skillmap.json', 'w') as file:
+    with open('skillmap.json', 'w') as file:
         json.dump(skill_map, file, sort_keys=True, indent=4)
 
 
@@ -179,7 +180,7 @@ def create_coordinator_list():
 
     coordinator_map["coordinators"] = coordinator_list
 
-    with open('../../I4application/impl/src/main/resources/coordinatorList.json', 'w') as file:
+    with open('coordinatorList.json', 'w') as file:
         json.dump(coordinator_map, file, sort_keys=True, indent=4)
 
 
@@ -281,9 +282,31 @@ def purge_messages():
     sleep(5)
 
 
+def copy_file():
+    info("**** Copying coordinator map and skill map\n")
+    path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources"
+    scp_client.put('coordinatorList.json', path + 'coordinatorList.json')
+    scp_client.put('skillmap.json', path + 'skillmap.json')
+
+
+def create_scp_client():
+    info("**** Creating scp client\n")
+    scp_client = SCPClient(ssh_client.get_transport())
+    return scp_client
+
+
+def create_ssh_client():
+    info("*** Creating SSH client\n")
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh_client.connect(hostname='10.0.1.16', username='basavaraj')
+    return ssh_client
+
+
 def flush_group_table():
     info("**** Clearing Group Table\n")
     requests.post(url4, auth=('admin', 'admin'))
+
 
 if __name__ == "__main__":
 
@@ -292,10 +315,10 @@ if __name__ == "__main__":
     parser.add_argument('-sc', '--switches', type=int, help="Switch count for topology", default=2)
     args = parser.parse_args()
 
-    url1 = 'http://localhost:8181/restconf/operations/updateSkills:update-skills-map'
-    url2 = 'http://localhost:8181/restconf/operations/updateCoordinator:update-coordinator-list'
-    url3 = "http://localhost:8181/restconf/operations/flushPktRpc:flushPkts"
-    url4 = 'http://localhost:8181/restconf/operations/FlushGroupTable:flushGrpTable'
+    url1 = 'http://10.0.1.16:8181/restconf/operations/updateSkills:update-skills-map'
+    url2 = 'http://10.0.1.16:8181/restconf/operations/updateCoordinator:update-coordinator-list'
+    url3 = "http://10.0.1.16:8181/restconf/operations/flushPktRpc:flushPkts"
+    url4 = 'http://10.0.1.16:8181/restconf/operations/FlushGroupTable:flushGrpTable'
 
     base_folders = "/home/basavaraj/ODL/test_folder/base_folders/"      #holds executables
     test_device_folders = "/home/basavaraj/Th/opcua_mDNS/test_device_folders/"   # holds_test device folders
@@ -306,13 +329,16 @@ if __name__ == "__main__":
     skill_list = ["Gripper", "Conveyer", "Sensor"]
     topology = [k for k in range(2, args.switches+1)]
 
+    ssh_client = create_ssh_client()
+    scp_client = create_scp_client()
+
     iteration = 2
     start_time = time()
     amqp_server_pid = []
     count = 5
-    start_server(count)
+    # start_server(count)
 
-    for switch_count in range(2, args.switches+1, 2):
+    for switch_count in range(12, args.switches+1, 2):
 
         update_folders(switch_count)
         create_ip_map()
@@ -320,6 +346,7 @@ if __name__ == "__main__":
         update_hostnames()
         create_skill_map()
         create_coordinator_list()
+        copy_file()         # Copies coorindator and skill map to SDN controller machine
         make_rpc()          # Make an RPC to ODL to update the Skill Map and flush old packets
         sleep(3)
         net = create_net()
@@ -329,16 +356,21 @@ if __name__ == "__main__":
             flush_packets()
             flush_group_table()
             sleep(5)
-            count = check_status()
-            if count:
-                purge_messages()
-                start_server(count)
-                iteration -= 1
-            else:
-                logfile = open('Testlog', 'a+')
-                logfile.write('Topology: %d and iteration: %d \n' % (switch_count, iteration))
-                logfile.close()
-                iteration -= 1
+            logfile = open('Testlog', 'a+')
+            logfile.write('Topology: %d and iteration: %d \n' % (switch_count, iteration))
+            logfile.close()
+            iteration -= 1
+
+            # # count = check_status()
+            # # if count:
+            # #     purge_messages()
+            # #     start_server(count)
+            # #     iteration -= 1
+            # # else:
+            #     logfile = open('Testlog', 'a+')
+            #     logfile.write('Topology: %d and iteration: %d \n' % (switch_count, iteration))
+            #     logfile.close()
+            #     iteration -= 1
 
         stop_net(net)
         copy_time_records(switch_count, str(topology[switch_count-2]))
