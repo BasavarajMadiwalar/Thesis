@@ -25,7 +25,7 @@ def create_net():
     net = Containernet(controller=None)
     info('*** Adding controller\n')
     net.addController(name="ODL", controller=RemoteController,
-                      ip='127.0.0.1', port=6653)
+                      ip='10.0.1.16', port=6653)
 
     info('*** Adding switches\n')
     switch_list = []
@@ -284,7 +284,7 @@ def purge_messages():
 
 def copy_file():
     info("**** Copying coordinator map and skill map\n")
-    path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources"
+    path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/"
     scp_client.put('coordinatorList.json', path + 'coordinatorList.json')
     scp_client.put('skillmap.json', path + 'skillmap.json')
 
@@ -320,9 +320,9 @@ if __name__ == "__main__":
     url3 = "http://10.0.1.16:8181/restconf/operations/flushPktRpc:flushPkts"
     url4 = 'http://10.0.1.16:8181/restconf/operations/FlushGroupTable:flushGrpTable'
 
-    base_folders = "/home/basavaraj/ODL/test_folder/base_folders/"      #holds executables
-    test_device_folders = "/home/basavaraj/Th/opcua_mDNS/test_device_folders/"   # holds_test device folders
-    results_folder = "/home/basavaraj/Th/opcua_mDNS/results/"       # holds results
+    base_folders = "/home/containernet/ODL/test_folder/base_folders/"      #holds executables
+    test_device_folders = "/home/containernet/Th/opcua_mDNS/test_device_folders/"   # holds_test device folders
+    results_folder = "/home/containernet/Th/opcua_mDNS/results/"       # holds results
 
     ip_map = {}
     mac_map = {}
