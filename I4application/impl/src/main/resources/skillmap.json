@@ -19,6 +19,16 @@
         "Conveyer", 
         "Sensor"
     ], 
+    "10.0.0.13": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "10.0.0.14": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
     "10.0.0.2": [
         "Gripper", 
         "Conveyer", 

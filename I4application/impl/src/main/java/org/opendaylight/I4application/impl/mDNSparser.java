@@ -28,7 +28,9 @@ public class mDNSparser {
     private static int port = 0;
     private static String hostname;
 
-
+    /**
+     * Parses mDNS packet payload and return hostname for URL construction
+     */
     public static String mDNSRecordParser(byte[] mDNSbinary){
         LOG.debug("mDNS Record Parser");
         String mDNSString = new String(mDNSbinary, StandardCharsets.UTF_8);

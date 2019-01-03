@@ -19,9 +19,9 @@ import org.opendaylight.controller.md.sal.binding.api.NotificationService;
 import org.opendaylight.controller.sal.binding.api.RpcProviderRegistry;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.basepacket.rev140528.packet.chain.grp.PacketChain;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketListener;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.Ipv4PacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.ipv4.rev140528.ipv4.packet.received.packet.chain.packet.Ipv4Packet;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.udp.rev181230.UdpPacketListener;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.packet.udp.rev181230.UdpPacketReceived;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.flushpktrpc.rev181201.FlushPktRpcService;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
@@ -44,7 +44,7 @@ import java.util.concurrent.*;
 
 
 
-public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
+public class mDNSPacketHandler implements UdpPacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
     private final static int MDNS_SRC_PORT = 5353;
@@ -98,19 +98,28 @@ public class mDNSPacketHandler implements Ipv4PacketListener, I4applicationListe
         }
     }
 
+
     @Override
-    public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
-        LOG.debug("Received an Ipv4 Packet");
-//        checkUDPacket(notification);
-        CompletableFuture.runAsync(()->checkUDPacket(notification), checkUDPExecutor);
+    public void onUdpPacketReceived(UdpPacketReceived notification) {
+        LOG.debug("Received an UDP Packet");
+//        CompletableFuture.runAsync(()->checkUDPacket(notification), checkUDPExecutor);
+        checkUDPacket(notification);
     }
 
-    public void checkUDPacket(Ipv4PacketReceived ipv4PacketReceived){
 
-        //Find the latest packet in the packet-chain, which is an IPv4Packet
-        List<PacketChain> packetChainList = ipv4PacketReceived.getPacketChain();
-        Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 1).getPacket();
-        byte[] data = ipv4PacketReceived.getPayload();
+//    @Override
+//    public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
+//        LOG.debug("Received an Ipv4 Packet");
+////        checkUDPacket(notification);
+//        CompletableFuture.runAsync(()->checkUDPacket(notification), checkUDPExecutor);
+//    }
+
+    public void checkUDPacket(UdpPacketReceived udpPacketReceived){
+
+        //Find the latest packet in the packet-chain, which is an UDP Packet
+        List<PacketChain> packetChainList = udpPacketReceived.getPacketChain();
+        Ipv4Packet ipv4Packet = (Ipv4Packet) packetChainList.get(packetChainList.size() - 2).getPacket();
+        byte[] data = udpPacketReceived.getPayload();
 
         if (!(ipv4Packet.getDestinationIpv4().toString().equals(mDNSMCAddr.toString()))){
             LOG.debug("not an mDNS Packet Received");

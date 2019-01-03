@@ -55,7 +55,6 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
     private NotificationPublishService notificationPublishService;
 
 
-    //private Ipv4Address coordinatorAddress = Ipv4Address.getDefaultInstance("10.0.0.3");
     private Ipv4Address opcua_server_Address;
     private HashMap<String, Ipv4Address> ipRecord = new HashMap<String, Ipv4Address>();
     private HashMap<String,ArrayList<Ipv4Address>> switchMap = new HashMap<String, ArrayList<Ipv4Address>>();
