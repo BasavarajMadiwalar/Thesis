@@ -15,7 +15,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
-public class mDNSparser {
+public class mDNS_packet_parser {
 
     private static final Logger LOG = LoggerFactory.getLogger(mDNSparser.class);
     private static final int SRV_RECORD_VAL = 33;

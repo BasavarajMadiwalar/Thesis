@@ -163,10 +163,21 @@ def create_skill_map():
     skill_map = {}
 
     for switch_id in range(1, switch_count+1):
-        skill_map[ip_map['d'+str(switch_id)]] = skill_list
+        skill_map["ws:"+str(switch_id)] = skill_list
 
     with open('skillmap.json', 'w') as file:
         json.dump(skill_map, file, sort_keys=True, indent=4)
+
+
+def create_switch_workstation_map():
+    info("**** Creating switch_workstation map\n")
+    switch_workstation_map = {}
+
+    for switch_id in range(1, switch_count+1):
+        switch_workstation_map["openflow:"+str(switch_id)] = "ws:"+str(switch_id)
+
+    with open('switch_workstation_map.json', 'w') as file:
+        json.dump(switch_workstation_map, file, sort_keys=True, indent=4)
 
 
 def create_coordinator_list():
@@ -285,7 +296,7 @@ def purge_messages():
 def copy_file():
     info("**** Copying coordinator map and skill map\n")
     path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/"
-    scp_client.put('coordinatorList.json', path + 'coordinatorList.json')
+    scp_client.put('switch_workstation_map.json', path + 'switch_workstation_map.json')
     scp_client.put('skillmap.json', path + 'skillmap.json')
 
 
@@ -338,15 +349,15 @@ if __name__ == "__main__":
     count = 5
     # start_server(count)
 
-    for switch_count in range(12, args.switches+1, 2):
+    for switch_count in range(2, args.switches+1, 2):
 
         update_folders(switch_count)
         create_ip_map()
         create_mac_map()
         update_hostnames()
         create_skill_map()
-        create_coordinator_list()
-        copy_file()         # Copies coorindator and skill map to SDN controller machine
+        create_switch_workstation_map()
+        copy_file()         # Copies switch_ws map and skill map to SDN controller machine
         make_rpc()          # Make an RPC to ODL to update the Skill Map and flush old packets
         sleep(3)
         net = create_net()
