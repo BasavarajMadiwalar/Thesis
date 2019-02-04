@@ -1,70 +1,10 @@
 {
-    "10.0.0.1": [
+    "ws:1": [
         "Gripper", 
         "Conveyer", 
         "Sensor"
     ], 
-    "10.0.0.10": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.11": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.12": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.13": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.14": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.2": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.3": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.4": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.5": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.6": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.7": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.8": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "10.0.0.9": [
+    "ws:2": [
         "Gripper", 
         "Conveyer", 
         "Sensor"

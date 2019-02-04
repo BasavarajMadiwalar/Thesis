@@ -51,7 +51,12 @@ public class PacketDispatcher {
         if (srcNCRef == null || dstNCRef == null){
             return false;
         }
-        InstanceIdentifier<Node> egressNode = InstanceIdentifierUtils.generateNodeInstanceIdentifier(dstNCRef);
+
+
+//        InstanceIdentifier<Node> egressNode = InstanceIdentifierUtils.generateNodeInstanceIdentifier(dstNCRef);
+        InstanceIdentifier<Node> egressNode = getNodeIID(dstNCRef);
+
+
 
         TransmitPacketInput transmitPacketInput = new TransmitPacketInputBuilder()
                             .setPayload(payload)
@@ -65,6 +70,8 @@ public class PacketDispatcher {
     public boolean dispatchPacket(byte[] payload, Ipv4Address scrIP, Ipv4Address dstIP){
         LOG.debug("Dispatch IP Packets");
         NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
+        Node dstNode = hostManager.getIpNode(dstIP);
+//        System.out.println("The dst_node is : " + dstNode.getId().getValue());
         if (dstNCRef == null){
             LOG.debug("Could not find an entry for:" + dstIP);
         }
@@ -88,5 +95,9 @@ public class PacketDispatcher {
                 .build();
         packetProcessingService.transmitPacket(transmitPacketInput);
         return true;
+    }
+
+    private InstanceIdentifier<Node> getNodeIID(final NodeConnectorRef NCref){
+        return NCref.getValue().firstIdentifierOf(Node.class);
     }
 }

@@ -72,8 +72,6 @@ public class I4applicationProvider {
          * TopologyChangeListerner - Listen for topology changes
          */
         TopologyChangeListener topologyChangeListener = new TopologyChangeListener(dataBroker, hostManager, networkGraphService);
-        topologyChangeListener.registerAsListener();
-        LOG.info("Topology Data Change Listner registered");
 
         /**
          * Flow writer - Create OF Flow objects
@@ -116,7 +114,9 @@ public class I4applicationProvider {
          * Create an Instance of mDNSPacket Handler
          */
 
-        mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, notificationPublishService, flowManager,
+        mDNS_packet_parser mDNS_packet_parser = new mDNS_packet_parser(notificationPublishService);
+
+        mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, mDNS_packet_parser, flowManager,
                 packetDispatcher, rpcProviderRegistry);
         LOG.info("Instance of mDNS Packet Handler created");
     }

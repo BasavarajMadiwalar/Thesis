@@ -21,9 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 public class IncomingPktHandler implements Ipv4PacketListener {
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.IncomingPktHandler.class);
@@ -31,8 +28,6 @@ public class IncomingPktHandler implements Ipv4PacketListener {
     private NotificationService notificationService;
     private PacketDispatcher packetDispatcher;
     private FlowManager flowManager;
-
-    ExecutorService packetProcessor = Executors.newFixedThreadPool(15);
 
     private Ipv4Address opcua_client = Ipv4Address.getDefaultInstance("10.0.0.200");
     private Ipv4Address dstIpAddr = null;
@@ -53,8 +48,7 @@ public class IncomingPktHandler implements Ipv4PacketListener {
     @Override
     public void onIpv4PacketReceived(Ipv4PacketReceived notification) {
         LOG.debug("Incoming Packet Handler recvied notification");
-        CompletableFuture.runAsync(()->processPacket(notification), packetProcessor);
-        //processPacket(notification);
+        processPacket(notification);
     }
 
     public void processPacket(Ipv4PacketReceived ipv4PacketReceived){

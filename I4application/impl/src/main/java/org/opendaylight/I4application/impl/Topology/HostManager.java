@@ -42,8 +42,8 @@ public class HostManager {
     private static final Logger LOG = LoggerFactory.getLogger(HostManager.class);
     private final DataBroker dataBroker;
 
-    private HashMap<Ipv4Address, InstanceIdentifier<NodeConnector>> ipv4AddressMapping;
-    private HashMap<MacAddress, InstanceIdentifier<NodeConnector>> macAddressMapping;
+    private HashMap<Ipv4Address, InstanceIdentifier<NodeConnector>> ipv4Address_port_Map;
+    private HashMap<MacAddress, InstanceIdentifier<NodeConnector>> macAddress_port_Map;
     private HashMap<String, NodeConnectorRef> controllerswitchconnector;
 
     private NotificationPublishService notificationProvider;
@@ -52,10 +52,10 @@ public class HostManager {
         this.dataBroker = dataBroker;
         this.notificationProvider = notificationPublishService;
 
-        //Initialize all the Mappings
-        ipv4AddressMapping = new HashMap<>();
-        macAddressMapping = new HashMap<>();
-        controllerswitchconnector = new HashMap<String, NodeConnectorRef>();
+//        //Initialize all the Mappings
+        ipv4Address_port_Map = new HashMap<>();
+        macAddress_port_Map = new HashMap<>();
+        controllerswitchconnector = new HashMap<>();
     }
 
     public synchronized NodeConnectorRef getControllerSwitchConnector(String nodeId){
@@ -103,6 +103,7 @@ public class HostManager {
                             .getNodeConnector();
                     if (nodeConnectors != null) {
                         for (NodeConnector nC : nodeConnectors) {
+                            // Do not add local port
                             if (nC.getKey().toString().contains("LOCAL")) {
                                 continue;
                             }
@@ -147,10 +148,10 @@ public class HostManager {
         if (ncid != null) {
             NodeConnector nc = getNodeConnectorFromII(ncid);
             if (nc != null) {
-                if (!ipv4AddressMapping.containsKey(ipv4Address)) {
-                    LOG.info("Adding " + ipv4Address.getValue()
+                if (!ipv4Address_port_Map.containsKey(ipv4Address)) {
+                    LOG.debug("Adding " + ipv4Address.getValue()
                             + " node Connector: " + nc.getId());
-                    ipv4AddressMapping.put(ipv4Address, ncid);
+                    ipv4Address_port_Map.put(ipv4Address, ncid);
                     // Notify about Host Addition
                     HostAddedNotification hostAddedNotification =  new HostAddedNotificationBuilder()
                             .setIPAddress(ipv4Address)
@@ -159,8 +160,8 @@ public class HostManager {
                     notificationProvider.offerNotification(hostAddedNotification);
                 } else {
                     NodeConnector oldNc = getIpNodeConnector(ipv4Address);
-                    if(oldNc != null) {
-                        LOG.warn("Duplicate entry for "
+                    if(oldNc!=null) {
+                        LOG.debug("Duplicate entry for "
                                 + ipv4Address.getValue() + "(new in " + nc.getId()
                                 + ", old in " + oldNc.getId() + ")");
                     }
@@ -173,7 +174,7 @@ public class HostManager {
 
         if (ipv4Address != null){
             LOG.debug("Remove Ipv4Address {} from HostManager", ipv4Address.getValue());
-            ipv4AddressMapping.remove(ipv4Address);
+            ipv4Address_port_Map.remove(ipv4Address);
             HostRemovedNotification hostRemovedNotification = new HostRemovedNotificationBuilder()
                                         .setIPAddress(ipv4Address).build();
             notificationProvider.offerNotification(hostRemovedNotification);
@@ -183,7 +184,7 @@ public class HostManager {
     public synchronized void removeMacAddress(MacAddress macAddress){
         if (macAddress != null){
             LOG.debug("Remove MacAddress {} from HostManager", macAddress.getValue());
-            macAddressMapping.remove(macAddress);
+            macAddress_port_Map.remove(macAddress);
         }
     }
 
@@ -193,10 +194,10 @@ public class HostManager {
                                            InstanceIdentifier<NodeConnector> ncid) {
         NodeConnector nc = getNodeConnectorFromII(ncid);
         if (nc != null) {
-            if (macAddressMapping.containsKey(macAddress)) {
+            if (macAddress_port_Map.containsKey(macAddress)) {
                 LOG.info("Adding " + macAddress.getValue().toString()
                         + " node Connector: " + nc.getId());
-                macAddressMapping.put(macAddress, ncid);
+                macAddress_port_Map.put(macAddress, ncid);
             } else {
                 NodeConnector oldNc = getMacNodeConnector(macAddress);
                 if(oldNc != null) {
@@ -205,7 +206,6 @@ public class HostManager {
                 }
             }
         }
-
     }
 
 
@@ -215,7 +215,6 @@ public class HostManager {
         try (ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction()) {
             futureNodeConnector = readTx.read(LogicalDatastoreType.OPERATIONAL,
                     nodeConnectorId);
-            readTx.close();
         }
         Optional<NodeConnector> opNodeConnector = null;
         try {
@@ -230,11 +229,13 @@ public class HostManager {
     }
 
     private Node getNodeFromII(InstanceIdentifier<Node> nodeId) {
+
         ListenableFuture<Optional<Node>> futureNode;
+
         try (ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction()) {
             futureNode = readTx.read(LogicalDatastoreType.OPERATIONAL, nodeId);
-            readTx.close();
         }
+
         Optional<Node> opNode = null;
         try {
             opNode = futureNode.get();
@@ -250,8 +251,8 @@ public class HostManager {
     public NodeConnector getIpNodeConnector(Ipv4Address ipv4Address) {
         NodeConnector nodeConnector = null;
 
-        if (ipv4AddressMapping.containsKey(ipv4Address)) {
-            InstanceIdentifier<NodeConnector> nodeConnectorId = ipv4AddressMapping
+        if (ipv4Address_port_Map.containsKey(ipv4Address)) {
+            InstanceIdentifier<NodeConnector> nodeConnectorId = ipv4Address_port_Map
                     .get(ipv4Address);
             nodeConnector = getNodeConnectorFromII(nodeConnectorId);
         }
@@ -261,8 +262,8 @@ public class HostManager {
 
     public Node getIpNode(Ipv4Address ipv4Address) {
         Node node = null;
-        if (ipv4AddressMapping.containsKey(ipv4Address)) {
-            InstanceIdentifier<NodeConnector> nodeConnectorId = ipv4AddressMapping
+        if (ipv4Address_port_Map.containsKey(ipv4Address)) {
+            InstanceIdentifier<NodeConnector> nodeConnectorId = ipv4Address_port_Map
                     .get(ipv4Address);
             InstanceIdentifier<Node> nodeId = nodeConnectorId
                     .firstIdentifierOf(Node.class);
@@ -274,27 +275,24 @@ public class HostManager {
     public NodeConnector getMacNodeConnector(MacAddress macAddress) {
         NodeConnector nodeConnector = null;
 
-        if (macAddressMapping.containsKey(macAddress)) {
-            InstanceIdentifier<NodeConnector> nodeConnectorId = macAddressMapping
+        if (macAddress_port_Map.containsKey(macAddress)) {
+            InstanceIdentifier<NodeConnector> nodeConnectorId = macAddress_port_Map
                     .get(macAddress);
             nodeConnector = getNodeConnectorFromII(nodeConnectorId);
         }
-
         return nodeConnector;
     }
-
 
     public Node getMacNode(MacAddress macAddress) {
         Node node = null;
 
-        if (macAddressMapping.containsKey(macAddress)) {
-            InstanceIdentifier<NodeConnector> nodeConnectorId = macAddressMapping
+        if (macAddress_port_Map.containsKey(macAddress)) {
+            InstanceIdentifier<NodeConnector> nodeConnectorId = macAddress_port_Map
                     .get(macAddress);
             InstanceIdentifier<Node> nodeId = nodeConnectorId
                     .firstIdentifierOf(Node.class);
             node = getNodeFromII(nodeId);
         }
-
         return node;
     }
 
@@ -302,7 +300,7 @@ public class HostManager {
         NodeConnectorRef ncRef = null;
         Node node;
         NodeConnector nc;
-        if (ipv4AddressMapping.containsKey(ipv4Address)) {
+        if (ipv4Address_port_Map.containsKey(ipv4Address)) {
             node = getIpNode(ipv4Address);
             nc = getIpNodeConnector(ipv4Address);
             return getNCRef(node, nc);
@@ -315,6 +313,7 @@ public class HostManager {
     }
 
 
+    // Move these methods to Flow Writer class
     public static NodeConnectorRef getSourceNodeConnectorRef(Link link) {
         InstanceIdentifier<NodeConnector> ncII = org.opendaylight.I4application.impl.utils.InstanceIdentifierUtils
                 .createNodeConnectorIdentifier(link.getSource().getSourceNode()
@@ -327,8 +326,6 @@ public class HostManager {
                 .createNodeConnectorIdentifier(link.getDestination()
                         .getDestNode().getValue(), link.getDestination()
                         .getDestTp().getValue());
-
         return new NodeConnectorRef(ncII);
     }
-
 }

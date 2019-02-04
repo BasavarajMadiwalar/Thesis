@@ -17,7 +17,9 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <repository>mvn:org.opendaylight.dlux/features-dlux/{{VERSION}}/xml/features</repository>
   <repository>mvn:org.opendaylight.openflowplugin/features-openflowplugin/${openflow.plugin.version}/xml/features</repository>
   <repository>mvn:org.opendaylight.l2switch/features-l2switch/{{VERSION}}/xml/features</repository>
-    <feature name='odl-I4application-api' version='${project.version}' description='OpenDaylight :: I4application :: api'>
+
+
+  <feature name='odl-I4application-api' version='${project.version}' description='OpenDaylight :: I4application :: api'>
     <feature version='${mdsal.model.version}'>odl-mdsal-models</feature>
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <bundle>mvn:org.opendaylight.I4application/I4application-api/{{VERSION}}</bundle>
@@ -26,8 +28,10 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
   <feature name='odl-I4application' version='${project.version}' description='OpenDaylight :: I4application'>
     <feature version='${mdsal.version}'>odl-mdsal-broker</feature>
     <feature version='${project.version}'>odl-I4application-api</feature>
+    <!-- OpenFlow plugin dependencies -->
     <feature version="${openflow.plugin.version}">odl-openflowplugin-southbound</feature>
     <feature version="${openflow.plugin.version}">odl-openflowplugin-flow-services</feature>
+    <!-- L2 switch plugin dependencies -->
     <feature version="${l2switch.version}">odl-l2switch-addresstracker</feature>
     <feature version="${l2switch.version}">odl-l2switch-arphandler</feature>
     <bundle>mvn:org.opendaylight.I4application/I4application-impl/{{VERSION}}</bundle>

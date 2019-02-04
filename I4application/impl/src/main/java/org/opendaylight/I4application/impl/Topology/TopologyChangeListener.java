@@ -65,9 +65,8 @@ public class TopologyChangeListener implements DataChangeListener {
         this.dataBroker = dataBroker;
         this.hostManager = hostManager;
         this.networkGraphService = networkGraphService;
-
+        registerAsListener();
     }
-
 
 
     public void registerAsListener(){
@@ -79,10 +78,10 @@ public class TopologyChangeListener implements DataChangeListener {
         linkDataChangeListener = dataBroker.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL,
                 linkIID, this, AsyncDataBroker.DataChangeScope.BASE);//Listen for change to node only(not child)
 
-        // Create an IID for Addresses of l2switch-addressTrackerModule
+        // Create an IID for Addresses list of l2switch-addressTrackerModule
         InstanceIdentifier<Addresses> addressesIID = InstanceIdentifier.builder(Nodes.class)
                 .child(Node.class).child(NodeConnector.class).augmentation(AddressCapableNodeConnector.class)
-                .child(Addresses.class).build();
+                .child(Addresses.class).build();// Listen for any addition to yang address list
 
         // Register for Address
         addressDataChangeListener = dataBroker.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL,
@@ -92,7 +91,7 @@ public class TopologyChangeListener implements DataChangeListener {
     private boolean handleLinkCreated(Link link){
         //To do Some
         if(!(link.getLinkId().getValue().contains("host"))){
-            // It's not a link with host connected, so we need to updated graph
+            // It's not a link with host connected, so we need to update graph
             return true;
         }else {
             // It's host link added to network, so not need to update
@@ -123,15 +122,6 @@ public class TopologyChangeListener implements DataChangeListener {
         if (mac !=null){
             hostManager.addMacAddress(mac, nodeConnectorId);
         }
-        if (mac!=null && ipv4Address!=null){
-            //Add a log ipv4 Address and Mac address is added
-            LOG.debug("New IPv4 Address Added {} & new MAC added {}", ipv4Address.getValue(), mac.getValue());
-//            System.out.println("New Ipv4 Address Added: " + ipv4Address.getValue() + " & new mac added: " + mac.getValue());
-        }else if (mac != null){
-            // Add a log saying only Mac address is added
-            LOG.debug("New MAC Added {}", mac);
-//            System.out.println("New mac added: " + mac);
-        }
     }
 
 
@@ -148,14 +138,15 @@ public class TopologyChangeListener implements DataChangeListener {
 
 
     @Override
-    public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> change) {
-        if (change == null){
+    public void onDataChanged(AsyncDataChangeEvent<InstanceIdentifier<?>, DataObject> notification) {
+
+        if (notification == null){
             return;
         }
 
-        Map<InstanceIdentifier<?>, DataObject> changedData = change.getCreatedData();
-        Set<InstanceIdentifier<?>> removedPath = change.getRemovedPaths();
-        Map<InstanceIdentifier<?>, DataObject> originalData = change.getOriginalData();
+        Map<InstanceIdentifier<?>, DataObject> changedData = notification.getCreatedData();
+        Set<InstanceIdentifier<?>> removedPath = notification.getRemovedPaths();
+        Map<InstanceIdentifier<?>, DataObject> originalData = notification.getOriginalData();
 
         boolean isGraphUpdated = false;
 

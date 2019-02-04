@@ -353,7 +353,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     /* Below Section of code is used for setting up mDNS Packet Flows */
     public boolean mDNSForwardPathFlow(Ipv4Address srcIP, Ipv4Address dstIP, Node srcNode, Node dstNode, NodeConnector srcNC,
                                        NodeConnector dstNC, List<Link> path){
-        LOG.info("mDNS Forward Path Flow");
+        LOG.debug("mDNS Forward Path Flow");
 
         NodeConnectorRef srcNCRef, dstNCRef;
 
@@ -389,7 +389,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         // Create an IID for flow
         InstanceIdentifier<Flow> flowPath = buildmDNSFlowPath(dstNCref, flowTableKey);
 
-        LOG.info("Adding flow to Node");
+        LOG.debug("Adding flow to Node");
         // write flow to config data
         writeFlowConfigData(flowPath, flow);
         return true;
@@ -433,7 +433,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         ipMatchBuilder.setIpProtocol(UDP);
 
         UdpMatchBuilder udpMatchBuilder = new UdpMatchBuilder();
-        udpMatchBuilder.setUdpSourcePort(new PortNumber(5353)).build();
+        udpMatchBuilder.setUdpSourcePort(new PortNumber(5353)).build(); // Chnage port number to a variable
         udpMatchBuilder.setUdpDestinationPort(new PortNumber(5353)).build();
 
         Layer4Match udpMatch = udpMatchBuilder.build();
@@ -520,7 +520,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     public void mDNSReverseFlowHanlder(Ipv4Address opcua_Server, Ipv4Address coordinator,
                                        Node srcNode, NodeConnector srcNC,  List<Link> path, Ipv4Address multicastAddress)
     {
-        LOG.info("mDNS Reverse Flow Handler");
+        LOG.debug("mDNS Reverse Flow Handler");
         NodeId currlinkSRCNodeId, prvlinkDstNodeId;
         NodeConnectorRef dstNCref, opcuaserNCref;
 
@@ -563,7 +563,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     }
 
     public void addFlow(Ipv4Address coordinator, Ipv4Address multicastAddress, NodeConnectorRef dstNCRef){
-        LOG.info("Add Flow to switch");
+        LOG.debug("Add Flow to switch");
 
         Flow flow = createMulticastgroupflow(coordinator, multicastAddress, dstNCRef);
         TableKey flowTableKey = new TableKey((short)flowTableId);
@@ -573,7 +573,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
 
     public void mDNSGroupHandler(Ipv4Address coordinator, NodeId currentNodeId,
                                  NodeConnectorRef dstNCRef, Ipv4Address multicastAddress){
-        LOG.info("mDNS Group Handler");
+        LOG.debug("mDNS Group Handler");
 
         ArrayList<NodeConnectorRef> newPortList = new ArrayList<NodeConnectorRef>();
         ArrayList<NodeConnectorRef> oldPortList = new ArrayList<NodeConnectorRef>();
@@ -584,7 +584,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
 
 
         if (!(groupTable.containsKey(currentNodeId))){
-            LOG.info("Creating an Entry for switch in Group Table");
+            LOG.debug("Creating an Entry for switch in Group Table");
             newPortList.add(dstNCRef);
             //System.out.println("After adding switch port list" + newPortList);
             newCoordinatorsMap.put(coordinator, newPortList);
@@ -594,7 +594,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
         }else {
             // check if the if the coordinator group is present for the switch
             if (!(groupTable.get(currentNodeId)).containsKey(coordinator)){
-                LOG.info("Adding new coordinator group");
+                LOG.debug("Adding new coordinator group");
                 newPortList.add(dstNCRef);
                 //System.out.println("After adding new coordinator" + newPortList);
                 (groupTable.get(currentNodeId)).put(coordinator, newPortList);
@@ -604,11 +604,11 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
                 oldPortList = (groupTable.get(currentNodeId)).get(coordinator);
                 try {
                     if (!(groupTable.get(currentNodeId)).get(coordinator).contains(dstNCRef)){
-                        LOG.info("Updating coordinator group with new port");
+                        LOG.debug("Updating coordinator group with new port");
                         (groupTable.get(currentNodeId)).get(coordinator).add(dstNCRef);
                         newPortList = (groupTable.get(currentNodeId)).get(coordinator);
                     }else {
-                        LOG.info("Port Already exist" + dstNCRef);
+                        LOG.debug("Port Already exist" + dstNCRef);
 //                        Commented below line and added return to avoid frequent group updation, if port list has not changed
 //                        newPortList = (groupTable.get(currentNodeId)).get(coordinator);
                         return;
@@ -618,7 +618,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
                 }
 
                 //Figure out a way to avoid updating group if you there is no change to the list
-                LOG.info("Calling Add group");
+                LOG.debug("Calling Add group");
                 originalGroup = createOriginalGroup(coordinator,oldPortList);
                 updatedGroup = createUpdatedGroup(coordinator, newPortList);
                 updateGroup(coordinator, dstNCRef, originalGroup, updatedGroup);
@@ -645,7 +645,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     }
 
     public void updateGroup(Ipv4Address coordinator, NodeConnectorRef dstNCRef, OriginalGroup oldGroup, UpdatedGroup newGroup){
-        LOG.info("Updating Group");
+        LOG.debug("Updating Group");
 
         InstanceIdentifier<Group> groupIID = InstanceIdentifierUtils.generateGroupInstanceIdentifier(dstNCRef, groupIdTable.get(coordinator));
         Future<RpcResult<UpdateGroupOutput>> future = updateGrouptoConfigData(groupIID, oldGroup, newGroup);
@@ -654,7 +654,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
 
     public Group createGroup(Ipv4Address coordinator, List<NodeConnectorRef> portlist)
     {
-        LOG.info("Creating Group");
+        LOG.debug("Creating Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
         Long groupId = 0L;
@@ -709,7 +709,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
 
     public OriginalGroup createOriginalGroup(Ipv4Address coordinator, List<NodeConnectorRef> portlist){
 
-        LOG.info("Creating Original Group");
+        LOG.debug("Creating Original Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
         Long groupId = groupIdTable.get(coordinator);
@@ -760,7 +760,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     }
 
     public UpdatedGroup createUpdatedGroup(Ipv4Address coordinator, List<NodeConnectorRef> portlist){
-        LOG.info("Creating Updated Group");
+        LOG.debug("Creating Updated Group");
 
         List<Bucket> bucketList = new ArrayList<Bucket>();
         Long groupId = groupIdTable.get(coordinator);
@@ -812,7 +812,7 @@ public class FlowWriter implements HostNotificationListener, FlushGroupTableServ
     /* writeGroupConfigData writes group info to config Data */
 
     public Flow createMulticastgroupflow(Ipv4Address coordinator, Ipv4Address dstIP, NodeConnectorRef dstPort){
-        LOG.info("Create Multicast Group");
+        LOG.debug("Create Multicast Group");
 
 //        long groupid = coordinator.hashCode();
         Long groupId = groupIdTable.get(coordinator);

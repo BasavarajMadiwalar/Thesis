@@ -8,9 +8,7 @@
 
 package org.opendaylight.I4application.impl;
 
-import com.fasterxml.jackson.core.JsonGenerationException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.util.concurrent.Futures;
 import org.apache.qpid.amqp_1_0.jms.impl.ConnectionFactoryImpl;
@@ -34,159 +32,111 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jms.*;
-import javax.naming.NamingException;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.Future;
 
 public class UrlNotificationHandler implements UrlNotificationListener, HostNotificationListener, UpdateSkillsService {
 
     /**
-     *  Create Reference for Notification Service and register this class
-     *  as Listener to MD-SAL. So that, MD-SAL notifies on urlpublish events
+     *  Object of the class listens for discovery URL of OPC UA server and publishes them on
+     *  to queue on AMQP message broker. Additionally, it listens for response messages from OPC UA Client
      *
      */
     private final static Logger LOG = LoggerFactory.getLogger(UrlNotificationHandler.class);
-
-    private NotificationService notificationService;
+    private HostManager hostManager;
     private NotificationPublishService notificationPublishService;
 
 
-    private Ipv4Address opcua_server_Address;
-    private HashMap<String, Ipv4Address> ipRecord = new HashMap<String, Ipv4Address>();
-    private HashMap<String,ArrayList<Ipv4Address>> switchMap = new HashMap<String, ArrayList<Ipv4Address>>();
+    private HashMap<String, Ipv4Address> ipRecord = new HashMap<>();
+    private HashMap<String, Ipv4Address> coordinator_ws_map = new HashMap<>();
+    private HashMap<String, String> switch_workstation_map = new HashMap<>();
+    private HashMap<String, ArrayList<String>> workstation_skillMap = new HashMap<>();
 
-    private HashMap<String, ArrayList<String>> coordinatorskillMap = null;
-
+    // Variable related to AMQP message broker connection
+    private Connection connection;
     private Session session;
-    private MessageProducer messageProducer;
-    private Destination opcQueue;
-    private TemporaryQueue temporaryQueue;
-    private MessageConsumer messageConsumer;
+    private MessageProducer url_publisher;
+    private Destination opcua_client_queue;
+    private TemporaryQueue response_queue;
+    private MessageConsumer response_consumer;
 
-    private HostManager hostManager;
-    private RpcProviderRegistry rpcProviderRegistry;
+    // Json Path variables
+    private String skill_map_path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/skillmap.json";
+    private String switch_ws_path = "/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/switch_workstation_map.json";
 
-    public UrlNotificationHandler(NotificationService notificationService,
-                                  NotificationPublishService notificationPublishService
-                                  , HostManager hostManager, RpcProviderRegistry rpcProviderRegistry) {
+
+    public UrlNotificationHandler(NotificationService notificationService, NotificationPublishService notificationPublishService
+            , HostManager hostManager, RpcProviderRegistry rpcProviderRegistry) {
+
         LOG.info("URL Notification Handler Initiated");
-        this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
         this.notificationPublishService = notificationPublishService;
         this.hostManager = hostManager;
         rpcProviderRegistry.addRpcImplementation(UpdateSkillsService.class, this);
 
         try {
-            setJMSclient();
-        } catch (NamingException e) {
-            e.printStackTrace();
+            create_amqp_client();
         } catch (JMSException e) {
             e.printStackTrace();
         }
 
-        try {
-            JsontoHashMap();
-        } catch (JsonGenerationException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        }
+        set_skill_map();
+        set_switch_workstation_map();
     }
 
-    public void setJMSclient() throws NamingException, JMSException {
-
+    private void create_amqp_client() throws JMSException {
 
         //Create a connection using factory
         ConnectionFactoryImpl factory = new ConnectionFactoryImpl("localhost", 5672, "admin", "password");
-        Connection connection = factory.createConnection("admin", "password");
+        connection = factory.createConnection("admin", "password");
         connection.start();
 
-        // Create Session object using connection
+        // Creates session and queue to put discovery url for opcua client
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-        opcQueue = new QueueImpl("queue");
-        temporaryQueue = session.createTemporaryQueue();
+        opcua_client_queue = new QueueImpl("queue");
+        response_queue = session.createTemporaryQueue();
 
-        // Create a Producer
-        messageProducer = session.createProducer(opcQueue);
+        // Creates a Producer
+        url_publisher = session.createProducer(opcua_client_queue);
 
-        // Create a Consumer
-        messageConsumer = session.createConsumer(temporaryQueue);
-        amqpMessageListener amqpMessageListener = new amqpMessageListener();
-        messageConsumer.setMessageListener(amqpMessageListener);
+
+        // Creates a Consumer and response queue listener object
+        response_consumer = session.createConsumer(response_queue);
+        response_consumer.setMessageListener(new amqpMessageListener());
     }
 
-    public void JsontoHashMap() throws JsonGenerationException, JsonMappingException {
+    private void set_skill_map(){
 
         ObjectMapper objectMapper = new ObjectMapper();
-        File jsonskillmap = new File("/home/basavaraj/ODL/Thesis/I4application/impl/src/main/resources/skillmap.json");
-
+        File jsonskillmap = new File(skill_map_path);
         try {
-             coordinatorskillMap = objectMapper.readValue(jsonskillmap,
-                    new TypeReference<HashMap<String, ArrayList<String>>>() {
-                    });
-
+             workstation_skillMap = objectMapper.readValue(jsonskillmap, new TypeReference<HashMap<String, ArrayList<String>>>() {});
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
-    @Override
-    public void onHostRemovedNotification(HostRemovedNotification notification) {
-        LOG.debug("Host Removed Notification Received");
-        // Update the Switch to Coordinator Hashmap
-        if (switchMap.containsValue(notification.getIPAddress())){
-            for (String switchId: switchMap.keySet()){
-                if(switchMap.get(switchId).equals(notification.getIPAddress())){
-                    try {
-                        switchMap.remove(switchId);
-                    } catch (Exception e){
-                        e.printStackTrace();
-                    }
-                }
-            }
-        }
-    }
+    private void set_switch_workstation_map(){
 
-    @Override
-    public void onHostAddedNotification(HostAddedNotification notification) {
-        LOG.debug("Host Added notification received");
-        Ipv4Address hostAddress = notification.getIPAddress();
-
-        // check if the coordinator skillmap as hostaddress as key.
-        if (!(coordinatorskillMap.containsKey(hostAddress.getValue()))){
-            return;
-        }
-
+        ObjectMapper objectMapper = new ObjectMapper();
+        File jsonskillmap = new File(switch_ws_path);
         try {
-            switchMap.put(notification.getSwitchId(), new ArrayList<>(Arrays.asList(hostAddress)));
-        }catch (Exception e){
+            switch_workstation_map = objectMapper.readValue(jsonskillmap,
+                    new TypeReference<HashMap<String, String>>() {
+                    });
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
-    public void publishUrl(DiscoveryUrlNotification notification) throws JMSException {
-
-        // Create a map object to map ip Addr to url
-        MapMessage ip2urlMap = session.createMapMessage();
-        ip2urlMap.setString("IPAddr", notification.getSrcIPAddress().toString());
-        ip2urlMap.setString("URL", notification.getDiscoveryUrl());
-
-
-        ip2urlMap.setJMSReplyTo(temporaryQueue);
-        LOG.debug("Publishing discovery URL {} onto queue", notification.getDiscoveryUrl());
-        messageProducer.send(ip2urlMap, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY,
-                Message.DEFAULT_TIME_TO_LIVE);
-    }
 
     @Override
     public void onDiscoveryUrlNotification(DiscoveryUrlNotification notification) {
         LOG.debug("Got discovery URL {} notification",notification.getDiscoveryUrl());
-        opcua_server_Address = notification.getSrcIPAddress();
+        Ipv4Address opcua_server_Address = notification.getSrcIPAddress();
 
         try {
             ipRecord.put(notification.getSrcIPAddress().toString(), opcua_server_Address);
@@ -201,50 +151,16 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
         }
     }
 
-    public void publishCoordinator(Ipv4Address server_Address, String skill) {
+    private void publishUrl(DiscoveryUrlNotification notification) throws JMSException {
 
-//        ArrayList<String> addrList = coordinatorskillMap.get(skill);
-//        for (String coordinatorAddress : addrList){
-//            LOG.info("Publishing identified coordinator {} ", coordinatorAddress);
-//            CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
-//                    .setCoOrdinatorAddress(Ipv4Address.getDefaultInstance(coordinatorAddress)).setOpcuaServerAddress(server_Address).build();
-//            notificationPublishService.offerNotification(coOrdinatorIdentified);
-//        }
+        // Create a map object to map ip addr to url
+        MapMessage ip2urlMap = session.createMapMessage();
+        ip2urlMap.setString("IPAddr", notification.getSrcIPAddress().toString());
+        ip2urlMap.setString("URL", notification.getDiscoveryUrl());
 
-        // Get the node id of corresponding to opcua-server
-        String switchId = hostManager.getIpNode(server_Address).getId().toString();
-
-        // from the switchMap, get the list of cooridnator for node id obtained in previous step
-        ArrayList<Ipv4Address> coordinatorList = switchMap.get(switchId);
-
-        // for each coordinator in list, get list of skills in coordinatorskill map. If the skill map consists of obtained skill,
-        // then send coordinator corresponding to it.
-
-        for (Ipv4Address coordinator: coordinatorList){
-            if (coordinatorskillMap.get(coordinator.getValue()).contains(skill)){
-                LOG.info("Publishing identified coordinator {} ", coordinator.getValue());
-                System.out.format("Coordinator for %s is %s.%n", server_Address.getValue(),coordinator.getValue());
-                CoOrdinatorIdentified coOrdinatorIdentified = new CoOrdinatorIdentifiedBuilder()
-                        .setCoOrdinatorAddress(coordinator).setOpcuaServerAddress(server_Address)
-                        .build();
-                notificationPublishService.offerNotification(coOrdinatorIdentified);
-            }
-        }
-    }
-
-    @Override
-    public Future<RpcResult<Void>> updateSkillsMap() {
-        System.out.println("Called Update Skill Map");
-
-        try {
-            JsontoHashMap();
-        } catch (JsonGenerationException e) {
-            e.printStackTrace();
-        } catch (JsonMappingException e) {
-            e.printStackTrace();
-        }
-
-        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
+        ip2urlMap.setJMSReplyTo(response_queue);
+        url_publisher.send(ip2urlMap, DeliveryMode.NON_PERSISTENT, Message.DEFAULT_PRIORITY,
+                Message.DEFAULT_TIME_TO_LIVE);
     }
 
     /**
@@ -252,15 +168,13 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
      */
 
     public class amqpMessageListener implements MessageListener {
-        Byte[] bytes = null;
+
         String Skill;
-        Ipv4Address opc_ser_Addr = null;
+        Ipv4Address opc_ser_Addr;
         @Override
         public void onMessage(Message message) {
-            Skill = null;
-            opc_ser_Addr = null;
+            LOG.debug("Received skill response");
             org.apache.qpid.amqp_1_0.jms.MapMessage recievedMessage = (org.apache.qpid.amqp_1_0.jms.MapMessage) message;
-            HashMap<String, String> mapMessage = null;
             try {
                 String IP_Addr = recievedMessage.getObject("IPAddr").toString();
                 opc_ser_Addr = ipRecord.get(IP_Addr);
@@ -268,7 +182,62 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
             } catch (JMSException e) {
                 e.printStackTrace();
             }
-            UrlNotificationHandler.this.publishCoordinator(opc_ser_Addr,Skill);
+            UrlNotificationHandler.this.identify_coordinator(opc_ser_Addr, Skill);
         }
     }
+
+
+    private void identify_coordinator(Ipv4Address ipv4Address, String skill){
+
+        if (skill.equals("coordinator")){
+            String switch_id = hostManager.getIpNode(ipv4Address).getId().getValue();
+            String workstation = switch_workstation_map.get(switch_id);
+            coordinator_ws_map.put(workstation, ipv4Address);
+            return;
+        }
+
+        // Add code to null return from getIpNode
+        String switch_id = hostManager.getIpNode(ipv4Address).getId().getValue();
+        String workstation = switch_workstation_map.get(switch_id);
+        if (workstation_skillMap.get(workstation).contains(skill)){
+            Ipv4Address coordinator_ip_addr = coordinator_ws_map.get(workstation);
+            LOG.info("Coordinator for {} is {}", ipv4Address.getValue(), coordinator_ip_addr.getValue());
+            CoOrdinatorIdentified notification =  new CoOrdinatorIdentifiedBuilder()
+                    .setCoOrdinatorAddress(coordinator_ip_addr).setOpcuaServerAddress(ipv4Address)
+                    .build();
+            notificationPublishService.offerNotification(notification);
+        }
+
+    }
+
+    @Override
+    public Future<RpcResult<Void>> updateSkillsMap() {
+        LOG.info("Update Workstation-skill map");
+        set_skill_map();
+        set_switch_workstation_map();
+        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
+    }
+
+    @Override
+    public void onHostRemovedNotification(HostRemovedNotification notification) {
+        LOG.debug("Remove Coordinator entry from workstation coordinator map");
+        if (coordinator_ws_map.containsValue(notification.getIPAddress())){
+            for (String workstation: coordinator_ws_map.keySet()){
+                if(coordinator_ws_map.get(workstation).equals(notification.getIPAddress())){
+                    try {
+                        coordinator_ws_map.remove(workstation);
+                    } catch (Exception e){
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onHostAddedNotification(HostAddedNotification notification) {
+        //Do nothing
+    }
+
+
 }
