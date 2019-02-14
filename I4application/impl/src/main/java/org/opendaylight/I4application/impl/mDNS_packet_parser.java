@@ -51,12 +51,6 @@ public class mDNS_packet_parser {
             return;
         }
 
-//        String mDNSString = new String(mDNSbinary, StandardCharsets.UTF_8);
-//
-//        PROTOCOL_POS = mDNSString.indexOf("_opcua-tcp");
-//        if(PROTOCOL_POS < 0){
-//            return;
-//        }
         //Copy SRV value
         RR_ByteArray = Arrays.copyOfRange(mDNSbinary, PROTOCOL_POS+SRV_RECORD_POS_OFFSET,
                                                 PROTOCOL_POS+SRV_RECORD_POS_OFFSET+2);

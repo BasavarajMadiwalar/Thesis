@@ -11,6 +11,7 @@ package org.opendaylight.I4application.impl;
 import com.google.common.util.concurrent.Futures;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.opendaylight.I4application.impl.flow.FlowManager;
+import org.opendaylight.I4application.impl.utils.MDNSPacketsQueue;
 import org.opendaylight.I4application.impl.utils.PacketParsingUtils;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
@@ -24,8 +25,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.flushpkt
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.CoOrdinatorIdentified;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.i4application.rev150105.I4applicationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.updatecoordinator.rev181201.UpdateCoordinatorService;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
@@ -41,12 +40,10 @@ import java.util.concurrent.*;
 
 
 
-public class mDNSPacketHandler implements UdpPacketListener, I4applicationListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
+public class mDNSPacketHandler implements UdpPacketListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
 
-    private ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>> mDNSPackets = new ConcurrentHashMap<>();
-    private ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>> coordinatorPackets = new ConcurrentHashMap<>();
     private Queue<ImmutablePair<Ipv4Packet, byte[]>> queue = new ConcurrentLinkedQueue<>();
     private ConcurrentHashMap<Ipv4Address, String> urlRecord = new ConcurrentHashMap<>();
 
@@ -58,17 +55,15 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
     ExecutorService mDNSPacketExecutor = Executors.newFixedThreadPool(5);
     ExecutorService checkUDPExecutor =  Executors.newFixedThreadPool(10);
     mDNSPacketBuffer mDNSPacketBufferThrd = new mDNSPacketBuffer();
-    mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(mDNSPackets);
-    private Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
+    private final Ipv4Address mDNSMCAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
     mDNS_packet_parser mDNS_packet_parser;
 
 
-    // Register for
+
     public mDNSPacketHandler(NotificationService notificationService, mDNS_packet_parser mDNS_packet_parser,
                              FlowManager flowManager, PacketDispatcher packetDispatcher, RpcProviderRegistry rpcProviderRegistry) {
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
-//        this.notificationProvider = notificationPublishService;
         rpcProviderRegistry.addRpcImplementation(UpdateCoordinatorService.class, this);
         rpcProviderRegistry.addRpcImplementation(FlushPktRpcService.class, this);
         this.mDNS_packet_parser = mDNS_packet_parser;
@@ -80,7 +75,6 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
     @Override
     public void onUdpPacketReceived(UdpPacketReceived notification) {
         LOG.debug("Received an UDP Packet");
-//        CompletableFuture.runAsync(()->checkUDPacket(notification), checkUDPExecutor);
         checkUDPacket(notification);
     }
 
@@ -131,19 +125,19 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
                 return;
             }
 
-            if(!(mDNSPackets.containsKey(mDNSPacket.getSourceIpv4()))){
+            if(!(MDNSPacketsQueue.mDNSPackets.containsKey(mDNSPacket.getSourceIpv4()))){
                 LOG.debug("Adding IP address to Map" + mDNSPacket.getSourceIpv4().getValue());
-                mDNSPackets.put(mDNSPacket.getSourceIpv4(), new ArrayList<>(Arrays.asList(packetPayload)));
+                MDNSPacketsQueue.mDNSPackets.put(mDNSPacket.getSourceIpv4(), new ArrayList<>(Arrays.asList(packetPayload)));
             }else{
                 try {
-                    oldlist = mDNSPackets.get(mDNSPacket.getSourceIpv4());
+                    oldlist = MDNSPacketsQueue.mDNSPackets.get(mDNSPacket.getSourceIpv4());
                 }catch (NullPointerException e){
                     LOG.debug("Null Pointer Exception {}", e);
                 }
                 oldlist.add(packetPayload);
-                mDNSPackets.put(mDNSPacket.getSourceIpv4(), oldlist);
+                MDNSPacketsQueue.mDNSPackets.put(mDNSPacket.getSourceIpv4(), oldlist);
             }
-            // check for SRV Record using Future
+
 
             /* Use executors and runnable to implements this. As Completable Future sometimes may block execution. */
 
@@ -178,68 +172,6 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
     }
 
 
-    @Override
-    public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
-        LOG.debug("Coordinator selection received");
-        Boolean flowsetupResult;
-
-        Ipv4Address opcua_server = notification.getOpcuaServerAddress();
-        Ipv4Address coordinator = notification.getCoOrdinatorAddress();
-
-        sendcoordinatorpkts(opcua_server, coordinator);
-        flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
-        if (flowsetupResult){
-            CompletableFuture.runAsync(()->sendPacketOut(opcua_server, coordinator));
-        }
-    }
-
-    private void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
-        ArrayList<byte[]> packetList = mDNSPackets.get(opcuaServer);
-        int packetcount = packetList.size();
-//        System.out.println("Packet Count is: " + packetcount);
-
-        for (byte[] packet:packetList){
-            boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
-            if (result) packetcount--;
-        }
-
-        if (packetcount != 0){
-            LOG.debug("Packet out failed");
-        }
-        LOG.debug("mDNS Packet out success");
-        mDNSPackets.remove(opcuaServer);
-//        urlRecord.remove(opcuaServer);
-    }
-
-    private void sendcoordinatorpkts(Ipv4Address opcuaserver, Ipv4Address coordinator){
-        // ArrayList<byte[]> packetList = coordinatorPackets.get(coordinator);
-        ArrayList<byte[]> packetList = mDNSPackets.get(coordinator);
-        for (byte[] packet:packetList){
-            boolean result = packetDispatcher.dispatchmDNSPacket(packet, coordinator, opcuaserver);
-        }
-
-    }
-
-    private void coordinatorPktHandler(Ipv4Packet ipv4Packet, byte[] payload){
-        ArrayList<byte[]> oldlist = new ArrayList<>();
-
-
-        // Just add the packet to Hash Map with coordinator IP as key and Value as list of packets
-        if(!(coordinatorPackets.containsKey(ipv4Packet.getSourceIpv4()))){
-            LOG.debug("Adding IP address to cooridnator list" + ipv4Packet.getSourceIpv4().getValue());
-            coordinatorPackets.put(ipv4Packet.getSourceIpv4(), new ArrayList<>(Arrays.asList(payload)));
-        } else{
-            try {
-                oldlist=coordinatorPackets.get(ipv4Packet.getSourceIpv4());
-            }catch (NullPointerException e){
-                LOG.info("Null Pointer Exception {}", e);
-            }
-            oldlist.add(payload);
-            coordinatorPackets.put(ipv4Packet.getSourceIpv4(), oldlist);
-        }
-
-    }
-
     /**
      * Method is called when HostManager removed any hosts from it's database upon
      *  shutdown of a host.
@@ -250,13 +182,10 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
     public void onHostRemovedNotification(HostRemovedNotification notification) {
 
         if (notification != null){
-            if (coordinatorPackets.containsKey(notification.getIPAddress())){
-                LOG.debug("Remove coordinator packets for " + notification.getIPAddress());
-                coordinatorPackets.remove(notification.getIPAddress());
-            } else if (mDNSPackets.containsKey(notification.getIPAddress())) {
+            if (MDNSPacketsQueue.mDNSPackets.containsKey(notification.getIPAddress())) {
                 LOG.debug("Remove mDNS packets for " + notification.getIPAddress());
                 System.out.println("Remove mDNS packets for " + notification.getIPAddress());
-                mDNSPackets.remove(notification.getIPAddress());
+                MDNSPacketsQueue.mDNSPackets.remove(notification.getIPAddress());
             } else {
                 return;
             }
@@ -271,8 +200,7 @@ public class mDNSPacketHandler implements UdpPacketListener, I4applicationListen
 
     private void flushpkts(){
         System.out.println("Removing Cached Packets");
-        coordinatorPackets.clear();
-        mDNSPackets.clear();
+        MDNSPacketsQueue.mDNSPackets.clear();
         mDNS_packet_parser.clear_url_record();
     }
 

@@ -118,7 +118,8 @@ public class I4applicationProvider {
 
         mDNSPacketHandler mDNSPacketHandler = new mDNSPacketHandler(notificationService, mDNS_packet_parser, flowManager,
                 packetDispatcher, rpcProviderRegistry);
-        LOG.info("Instance of mDNS Packet Handler created");
+
+        mDNSPacketForwarder mDNSPacketForwarder = new mDNSPacketForwarder(notificationService, flowManager, packetDispatcher);
     }
 
     /**

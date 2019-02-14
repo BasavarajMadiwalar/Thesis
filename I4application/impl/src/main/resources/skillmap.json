@@ -8,5 +8,15 @@
         "Gripper", 
         "Conveyer", 
         "Sensor"
+    ], 
+    "ws:3": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:4": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
     ]
 }
