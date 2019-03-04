@@ -43,7 +43,7 @@ public class mDNS_packet_parser {
     /**
      * Parses mDNS packet payload and return hostname for URL construction
      */
-    public void mDNSRecordParser(byte[] mDNSbinary, int PROTOCOL_POS, Ipv4Address src_address){
+    public void mDNSSRVRecordParser(byte[] mDNSbinary, int PROTOCOL_POS, Ipv4Address src_address){
         LOG.debug("mDNS Record Parser");
 
         if (urlRecord.containsKey(src_address)){

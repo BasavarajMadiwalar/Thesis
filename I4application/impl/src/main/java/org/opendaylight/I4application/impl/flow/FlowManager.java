@@ -18,6 +18,7 @@ import org.opendaylight.I4application.impl.Topology.HostManager;
 import org.opendaylight.I4application.impl.Topology.NetworkGraphService;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev130715.MacAddress;
+import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.tbd.params.xml.ns.yang.network.topology.rev131021.NodeId;
@@ -37,14 +38,17 @@ public class FlowManager {
     private NetworkGraphService networkGraphService;
     private List<List<Link>> paths = null;
     private FlowWriter flowWriter;
+    private MDNSFlowWriter mDNSFlowWriter;
 
     private Ipv4Address mDNSMulticastAddr = Ipv4Address.getDefaultInstance("224.0.0.251");
 
 
-    public FlowManager(HostManager hostManager, NetworkGraphService networkGraphService, FlowWriter flowWriter) {
+    public FlowManager(HostManager hostManager, NetworkGraphService networkGraphService,
+                       FlowWriter flowWriter, MDNSFlowWriter mDNSFlowWriter) {
         this.hostManager = hostManager;
         this.networkGraphService = networkGraphService;
         this.flowWriter = flowWriter;
+        this.mDNSFlowWriter = mDNSFlowWriter;
     }
 
 
@@ -52,34 +56,40 @@ public class FlowManager {
      * Recieve IP src&dst , mac src&dst and check if the path exists for the combination.
      *
      */
-    public boolean handleIpPacket(Ipv4Address srcIP, MacAddress srcMAC, Ipv4Address dstIP, MacAddress dstMAC){
+    public boolean ipPktFlowManager(Ipv4Address srcIP, MacAddress srcMAC, Ipv4Address dstIP, MacAddress dstMAC){
 
-        //ArrayList<Link> path = null;
         List<Link> path = null;
         List<Link> revPath = null;
         NodeId srcNodeId, dstNodeId;
         boolean forwardPath;
 
-        // Use the srcIP, dstIP and get NodeConnector and Node from Host Manager
-        NodeConnector srcNodeConn = hostManager.getIpNodeConnector(srcIP);
-        NodeConnector dstNodeConn = hostManager.getIpNodeConnector(dstIP);
+        // Use the srcIP, dstIP and get NodeConnectorRef and Node from Host Manager
+        NodeConnectorRef srcNodeConnRef = hostManager.getIpNodeConnectorRef(srcIP);
+        NodeConnectorRef dstNodeConnRef = hostManager.getIpNodeConnectorRef(dstIP);
 
         Node srcNode = hostManager.getIpNode(srcIP);
         Node dstNode = hostManager.getIpNode(dstIP);
 
-        if (srcNode !=null && srcNodeConn != null && dstNode !=null && dstNodeConn != null){
+        if (srcNode !=null && dstNode !=null){
+
             srcNodeId = new NodeId(srcNode.getKey().getId().getValue());
             dstNodeId = new NodeId(dstNode.getKey().getId().getValue());
 
+            flowWriter.addFlowtoNode(srcIP, srcMAC, srcNodeConnRef);
+            flowWriter.addFlowtoNode(dstIP, dstMAC, dstNodeConnRef);
+
+            if (srcNodeId.equals(dstNodeId)) {
+                LOG.debug("Both source and destination attached to same switch");
+                return true;
+            }
+
             path = FindPath(srcNodeId, dstNodeId);
             if (path!=null){
-                forwardPath = flowWriter.addE2Epathflow(srcIP, dstIP,
-                        srcMAC, dstMAC, srcNode, dstNode, srcNodeConn, dstNodeConn, path);
+                forwardPath = flowWriter.addFlowToPathNodes(srcIP, srcMAC, dstIP, dstMAC, srcNode, path);
                 if (forwardPath){
                     //Add Reverse Path
                     revPath = reversePath(path);
                     if (revPath != null){
-                        //flowWriter.addE2Epathflow(dstIP,srcIP,dstMAC,srcMAC,dstNode,srcNode,dstNodeConn,srcNodeConn,revPath);
                         return flowWriter.addFlowToPathNodes(dstIP, dstMAC,srcIP, srcMAC, dstNode, revPath);
                     }
                 }
@@ -93,11 +103,11 @@ public class FlowManager {
 
     /**
      * Method is used to find path between srchost and identified co-ordinator
-     * @param srcIP source host ip address
-     * @param dstIP Identifed coordinator ip address
+     * @param opcuaServer source host ip address
+     * @param coordinator Identifed coordinator ip address
      */
 
-    public boolean mDNSPktFlowManager(Ipv4Address srcIP, Ipv4Address dstIP){
+    public boolean mDNSPktFlowManager(Ipv4Address opcuaServer, Ipv4Address coordinator){
         LOG.info("mDNS Packet Flow Manager");
 
         List<Link> path = null;
@@ -107,11 +117,11 @@ public class FlowManager {
         NodeId srcNodeId, dstNodeId;
 
         // Use the SrcIP and dstIP to get the NodeConnector and Node from the host Manager
-        NodeConnector srcNodeConn = hostManager.getIpNodeConnector(srcIP);
-        NodeConnector dstNodeConn = hostManager.getIpNodeConnector(dstIP);
+        NodeConnector srcNodeConn = hostManager.getIpNodeConnector(opcuaServer);
+        NodeConnector dstNodeConn = hostManager.getIpNodeConnector(coordinator);
 
-        Node srcNode = hostManager.getIpNode(srcIP);
-        Node dstNode = hostManager.getIpNode(dstIP);
+        Node srcNode = hostManager.getIpNode(opcuaServer);
+        Node dstNode = hostManager.getIpNode(coordinator);
 
         if (srcNode != null && dstNode != null && srcNodeConn != null && dstNodeConn != null){
             srcNodeId = new NodeId(srcNode.getKey().getId().getValue());
@@ -122,10 +132,10 @@ public class FlowManager {
             if(path != null){
                 LOG.info("Shortest Path found");
                 // Path is between src host and coordinator, but we set the match field as the src Ip and multicast IP address
-                forPath = flowWriter.mDNSForwardPathFlow(srcIP, mDNSMulticastAddr,
+                forPath = mDNSFlowWriter.mDNSForwardPathFlow(opcuaServer, mDNSMulticastAddr,
                         srcNode, dstNode, srcNodeConn, dstNodeConn, path);
                 if (forPath){
-                    flowWriter.mDNSReverseFlowHanlder(srcIP,dstIP,srcNode,srcNodeConn, path, mDNSMulticastAddr);
+                    mDNSFlowWriter.mDNSReverseFlowHanlder(opcuaServer,coordinator,srcNode,srcNodeConn, path, mDNSMulticastAddr);
                 }
                 return forPath;
             }

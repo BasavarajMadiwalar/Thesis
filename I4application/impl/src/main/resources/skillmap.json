@@ -4,6 +4,31 @@
         "Conveyer", 
         "Sensor"
     ], 
+    "ws:10": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:11": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:12": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:13": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:14": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
     "ws:2": [
         "Gripper", 
         "Conveyer", 
@@ -15,6 +40,31 @@
         "Sensor"
     ], 
     "ws:4": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:5": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:6": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:7": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:8": [
+        "Gripper", 
+        "Conveyer", 
+        "Sensor"
+    ], 
+    "ws:9": [
         "Gripper", 
         "Conveyer", 
         "Sensor"

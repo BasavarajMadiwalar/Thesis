@@ -9,7 +9,6 @@
 package org.opendaylight.I4application.impl;
 
 import org.opendaylight.I4application.impl.Topology.HostManager;
-import org.opendaylight.I4application.impl.utils.InstanceIdentifierUtils;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef;
@@ -33,30 +32,25 @@ public class PacketDispatcher {
     }
 
 
-    public boolean dispatchmDNSPacket(byte[] payload, Ipv4Address srcIP, Ipv4Address dstIP){
-        LOG.debug("DispatchmDNS packet");
+    public boolean dispatchPacket(byte[] payload, Ipv4Address srcIP, Ipv4Address dstIP){
+        LOG.debug("Dispatch packet");
         NodeConnectorRef srcNCRef = hostManager.getIpNodeConnectorRef(srcIP);
         NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
 
         if (srcNCRef != null && dstNCRef != null){
-            return sendmDNSPacketOut(payload, srcNCRef, dstNCRef);
+            return sendPacketOut(payload, srcNCRef, dstNCRef);
         }
         return false;
     }
 
-    public boolean sendmDNSPacketOut(byte[] payload,
+    public boolean sendPacketOut(byte[] payload,
                                      NodeConnectorRef srcNCRef, NodeConnectorRef dstNCRef){
-        LOG.debug("Sending mDNS Packets out");
 
         if (srcNCRef == null || dstNCRef == null){
             return false;
         }
 
-
-//        InstanceIdentifier<Node> egressNode = InstanceIdentifierUtils.generateNodeInstanceIdentifier(dstNCRef);
         InstanceIdentifier<Node> egressNode = getNodeIID(dstNCRef);
-
-
 
         TransmitPacketInput transmitPacketInput = new TransmitPacketInputBuilder()
                             .setPayload(payload)
@@ -67,37 +61,7 @@ public class PacketDispatcher {
         return true;
     }
 
-    public boolean dispatchPacket(byte[] payload, Ipv4Address scrIP, Ipv4Address dstIP){
-        LOG.debug("Dispatch IP Packets");
-        NodeConnectorRef dstNCRef = hostManager.getIpNodeConnectorRef(dstIP);
-        Node dstNode = hostManager.getIpNode(dstIP);
-//        System.out.println("The dst_node is : " + dstNode.getId().getValue());
-        if (dstNCRef == null){
-            LOG.debug("Could not find an entry for:" + dstIP);
-        }
-
-        if (dstNCRef != null){
-            return sendPacketOut(payload, dstNCRef);
-        }
-        return false;
-    }
-
-    public boolean sendPacketOut(byte[] payload, NodeConnectorRef dstNCRef){
-
-        LOG.debug("Sending general Packet out");
-
-        InstanceIdentifier<Node> egressNode = InstanceIdentifierUtils.generateNodeInstanceIdentifier(dstNCRef);
-
-        TransmitPacketInput transmitPacketInput = new TransmitPacketInputBuilder()
-                .setPayload(payload)
-                .setNode(new NodeRef(egressNode))
-                .setEgress(dstNCRef)
-                .build();
-        packetProcessingService.transmitPacket(transmitPacketInput);
-        return true;
-    }
-
-    private InstanceIdentifier<Node> getNodeIID(final NodeConnectorRef NCref){
-        return NCref.getValue().firstIdentifierOf(Node.class);
+    private InstanceIdentifier<Node> getNodeIID(final NodeConnectorRef NCRef){
+        return NCRef.getValue().firstIdentifierOf(Node.class);
     }
 }

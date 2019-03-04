@@ -38,7 +38,6 @@ public class mDNSPacketForwarder implements I4applicationListener {
         this.packetDispatcher = packetDispatcher;
     }
 
-
     @Override
     public void onCoOrdinatorIdentified(CoOrdinatorIdentified notification) {
         LOG.debug("Coordinator selection received");
@@ -50,17 +49,17 @@ public class mDNSPacketForwarder implements I4applicationListener {
         sendcoordinatorpkts(opcua_server, coordinator);
         flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
         if (flowsetupResult){
-            sendPacketOut(opcua_server, coordinator);
+            sendOPCUAPkts(opcua_server, coordinator);
         }
     }
 
 
-    private void sendPacketOut(Ipv4Address opcuaServer, Ipv4Address coordinator){
+    private void sendOPCUAPkts(Ipv4Address opcuaServer, Ipv4Address coordinator){
         ArrayList<byte[]> packetList = MDNSPacketsQueue.mDNSPackets.get(opcuaServer);
         int packetcount = packetList.size();
 
         for (byte[] packet:packetList){
-            boolean result = packetDispatcher.dispatchmDNSPacket(packet, opcuaServer, coordinator);
+            boolean result = packetDispatcher.dispatchPacket(packet, opcuaServer, coordinator);
             if (result) packetcount--;
         }
 
@@ -75,7 +74,7 @@ public class mDNSPacketForwarder implements I4applicationListener {
 
         ArrayList<byte[]> packetList = MDNSPacketsQueue.mDNSPackets.get(coordinator);
         for (byte[] packet:packetList){
-            boolean result = packetDispatcher.dispatchmDNSPacket(packet, coordinator, opcuaserver);
+            boolean result = packetDispatcher.dispatchPacket(packet, coordinator, opcuaserver);
         }
 
     }

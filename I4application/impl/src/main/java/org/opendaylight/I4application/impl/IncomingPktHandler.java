@@ -38,7 +38,7 @@ public class IncomingPktHandler implements Ipv4PacketListener {
     public IncomingPktHandler(NotificationService notificationService
                                 , FlowManager flowManager
                                 , PacketDispatcher packetDispatcher) {
-        // Register this class to MD-SAL notification service
+
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
         this.flowManager = flowManager;
@@ -91,7 +91,7 @@ public class IncomingPktHandler implements Ipv4PacketListener {
             return;
         }
         //Create a rule and packetout received packet-out
-        rulecreated = flowManager.handleIpPacket(srcIpAddr, srcMac, dstIpAddr, dstMac);
+        rulecreated = flowManager.ipPktFlowManager(srcIpAddr, srcMac, dstIpAddr, dstMac);
         if (rulecreated){
             packetDispatcher.dispatchPacket(payload, srcIpAddr, dstIpAddr);
         }

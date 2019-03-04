@@ -53,8 +53,6 @@ public class TopologyChangeListener implements DataChangeListener {
     private NetworkGraphService networkGraphService;
     private Long graphRefreshDelay = 1000L;
 
-
-
     private ListenerRegistration<DataChangeListener> linkDataChangeListener;
     private ListenerRegistration<DataChangeListener> addressDataChangeListener;
 
@@ -223,7 +221,6 @@ public class TopologyChangeListener implements DataChangeListener {
                 return;
             }
             networkGraphService.addLinks(links);
-
         }
 
         private List<Link> getLinksFromTopology(){

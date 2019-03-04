@@ -6,7 +6,7 @@
  * and is available at http://www.eclipse.org/legal/epl-v10.html
  */
 
-package org.opendaylight.I4application.impl.Topology;
+package org.opendaylight.I4application.impl.flow;
 
 import com.google.common.collect.ImmutableList;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
@@ -48,7 +48,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeRef
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.Node;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.nodes.NodeKey;
-import org.opendaylight.yangtools.concepts.ListenerRegistration;
 import org.opendaylight.yangtools.yang.binding.DataObject;
 import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.opendaylight.yangtools.yang.common.RpcResult;
@@ -60,6 +59,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
+
+/*
+    An object of this class is used to add default flows to add the switches connected to the controller
+    Default flow forwards all the unmatched packets to the SDN controller. The core idea is taken from L2 switch which
+    configures flow rule to drop the unmatched packets.
+ */
+
 
 public class InitialFlowExecutor implements DataChangeListener {
 
@@ -89,12 +95,10 @@ public class InitialFlowExecutor implements DataChangeListener {
         this.notificationService = notificationService;
         this.dataBroker = dataBroker;
         this.salFlowService = salFlowService;
-        registerAsDataChangeListener(dataBroker);
-    }
 
-    public ListenerRegistration<DataChangeListener> registerAsDataChangeListener(DataBroker dataBroker){
+        //Register with MD-SAL to listen for any changes to nodes class.
         InstanceIdentifier<Node> nodeIID = InstanceIdentifier.builder(Nodes.class).child(Node.class).build();
-        return dataBroker.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL, nodeIID, this, AsyncDataBroker.DataChangeScope.BASE);
+        dataBroker.registerDataChangeListener(LogicalDatastoreType.OPERATIONAL, nodeIID, this, AsyncDataBroker.DataChangeScope.BASE);
 
     }
 
@@ -135,7 +139,6 @@ public class InitialFlowExecutor implements DataChangeListener {
                     }
                 }
             }
-
         }
 
         /**
@@ -144,10 +147,10 @@ public class InitialFlowExecutor implements DataChangeListener {
         public void addInitialFlow(InstanceIdentifier<Node> nodeId){
             //new ControllerActionCaseBuilder().build();
             InstanceIdentifier<Table> tableId = getTableInstanceId(nodeId);
-            InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow> flowId = getFlowInstanceId(tableId);
+            InstanceIdentifier<Flow> flowId = getFlowInstanceId(tableId);
 
             //Call FlowWriterToController
-            writeFlowToController(nodeId, tableId, flowId, createFlow(flowTableId, flowPriority));
+            writeFlow(nodeId, tableId, flowId, createFlow(flowTableId, flowPriority));
         }
 
         private InstanceIdentifier<Table> getTableInstanceId(InstanceIdentifier<Node> nodeId){
@@ -156,7 +159,7 @@ public class InitialFlowExecutor implements DataChangeListener {
                     .child(Table.class, flowTableKey).build();
         }
 
-        private InstanceIdentifier<org.opendaylight.yang.gen.v1.urn.opendaylight.flow.inventory.rev130819.tables.table.Flow> getFlowInstanceId(InstanceIdentifier<Table> tableId){
+        private InstanceIdentifier<Flow> getFlowInstanceId(InstanceIdentifier<Table> tableId){
             FlowId flowId = new FlowId(FLOW_ID_PREFIX+String.valueOf(flowIdInc.getAndIncrement()));
             FlowKey flowKey = new FlowKey(flowId);
             return tableId.child(Flow.class, flowKey);
@@ -212,7 +215,7 @@ public class InitialFlowExecutor implements DataChangeListener {
             return ControllerFlow.build();
         }
 
-        private Future<RpcResult<AddFlowOutput>> writeFlowToController(InstanceIdentifier<Node> nodeInstanceId,
+        private Future<RpcResult<AddFlowOutput>> writeFlow(InstanceIdentifier<Node> nodeInstanceId,
                                                                        InstanceIdentifier<Table> tableInstanceId,
                                                                        InstanceIdentifier<Flow> flowPath,
                                                                        Flow flow){

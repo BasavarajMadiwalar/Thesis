@@ -13,6 +13,7 @@ import org.opendaylight.I4application.impl.Topology.NetworkGraphService;
 import org.opendaylight.I4application.impl.Topology.TopologyChangeListener;
 import org.opendaylight.I4application.impl.flow.FlowManager;
 import org.opendaylight.I4application.impl.flow.FlowWriter;
+import org.opendaylight.I4application.impl.flow.MDNSFlowWriter;
 import org.opendaylight.controller.md.sal.binding.api.DataBroker;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.controller.md.sal.binding.api.NotificationService;
@@ -78,12 +79,13 @@ public class I4applicationProvider {
          *
          */
 
-        FlowWriter flowWriter = new FlowWriter(salFlowService, dataBroker, notificationService, salGroupService, rpcProviderRegistry); // In Future need to pass SALGroup Serive for flow writing
+        FlowWriter flowWriter = new FlowWriter(salFlowService); // In Future need to pass SALGroup Serive for flow writing
+        MDNSFlowWriter mdnsFlowWriter = new MDNSFlowWriter(salFlowService, notificationService, salGroupService, rpcProviderRegistry);
 
         /**
          * Create a Flow Manager and pass and Instance of Host Manager
          */
-        FlowManager flowManager = new FlowManager(hostManager, networkGraphService, flowWriter);
+        FlowManager flowManager = new FlowManager(hostManager, networkGraphService, flowWriter, mdnsFlowWriter);
 
 
         /**

@@ -16,7 +16,6 @@ import org.opendaylight.controller.md.sal.binding.api.ReadOnlyTransaction;
 import org.opendaylight.controller.md.sal.common.api.data.LogicalDatastoreType;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.yang.types.rev130715.MacAddress;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorId;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.NodeConnectorRef;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.Nodes;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.inventory.rev130819.node.NodeConnector;
@@ -32,9 +31,7 @@ import org.opendaylight.yangtools.yang.binding.InstanceIdentifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 public class HostManager {
@@ -58,72 +55,9 @@ public class HostManager {
         controllerswitchconnector = new HashMap<>();
     }
 
-    public synchronized NodeConnectorRef getControllerSwitchConnector(String nodeId){
-        NodeConnectorRef controllerSwitchNc = controllerswitchconnector.get(nodeId);
-        if (controllerSwitchNc != null){
-            return controllerSwitchNc;
-        }else {
-            readInventory();
-            return controllerswitchconnector.get(nodeId);
-        }
-    }
-
-    // Read Inventory to obtain node details
-    private void readInventory(){
-        synchronized (this) {
-            InstanceIdentifier.InstanceIdentifierBuilder<Nodes> nodesInstanceIdentifierBuilder = InstanceIdentifier.<Nodes>builder(Nodes.class);
-            Nodes nodes = null;
-
-            ReadOnlyTransaction readOnlyTransaction = dataBroker.newReadOnlyTransaction();
-
-            try {
-                Optional<Nodes> dataObjectOptional = null;
-                dataObjectOptional = readOnlyTransaction.read(
-                        LogicalDatastoreType.OPERATIONAL,
-                        nodesInstanceIdentifierBuilder.build()).get();
-                if (dataObjectOptional.isPresent())
-                    nodes = (Nodes) dataObjectOptional.get();
-            } catch (InterruptedException e) {
-                LOG.error("Failed to read nodes from Operation data store.");
-                readOnlyTransaction.close();
-                throw new RuntimeException(
-                        "Failed to read nodes from Operation data store.", e);
-            } catch (ExecutionException e) {
-                LOG.error("Failed to read nodes from Operation data store.");
-                readOnlyTransaction.close();
-                throw new RuntimeException(
-                        "Failed to read nodes from Operation data store.", e);
-            }
-
-            if (nodes != null) {
-                // Get NodeConnectors for each node
-                for (Node node : nodes.getNode()) {
-                    ArrayList<NodeConnectorRef> nodeConnectorRefs = new ArrayList<NodeConnectorRef>();
-                    List<NodeConnector> nodeConnectors = node
-                            .getNodeConnector();
-                    if (nodeConnectors != null) {
-                        for (NodeConnector nC : nodeConnectors) {
-                            // Do not add local port
-                            if (nC.getKey().toString().contains("LOCAL")) {
-                                continue;
-                            }
-                            nodeConnectorRefs.add(getNCRef(node, nC));
-                        }
-                    }
-                    /*
-                     * switchNodeConnectors.put(node.getId().getValue(),
-                     * nodeConnectorRefs);
-                     */
-
-                    controllerswitchconnector.put(node.getId().getValue(),
-                            getLocalNCRef(node));
-                }
-            }
-            readOnlyTransaction.close();
-        }
-    }
 
     private NodeConnectorRef getNCRef(Node node, NodeConnector nodeConnector) {
+
         NodeConnectorRef ncRef = new NodeConnectorRef(InstanceIdentifier
                 .<Nodes> builder(Nodes.class)
                 .<Node, NodeKey> child(Node.class, node.getKey())
@@ -132,21 +66,11 @@ public class HostManager {
         return ncRef;
     }
 
-    private NodeConnectorRef getLocalNCRef(Node node) {
-        NodeConnectorRef ncRef = new NodeConnectorRef(InstanceIdentifier
-                .<Nodes> builder(Nodes.class)
-                .<Node, NodeKey> child(Node.class, node.getKey())
-                .<NodeConnector, NodeConnectorKey> child(
-                        NodeConnector.class,
-                        new NodeConnectorKey(new NodeConnectorId(node.getId()
-                                .getValue() + ":LOCAL"))).build());
-        return ncRef;
-    }
 
     public synchronized void addIpv4Address(Ipv4Address ipv4Address,
                                             InstanceIdentifier<NodeConnector> ncid) {
         if (ncid != null) {
-            NodeConnector nc = getNodeConnectorFromII(ncid);
+            NodeConnector nc = getNodeConnectorFromII(ncid);                           // We need to access the inventory to the value stored at the given IID
             if (nc != null) {
                 if (!ipv4Address_port_Map.containsKey(ipv4Address)) {
                     LOG.debug("Adding " + ipv4Address.getValue()
@@ -208,10 +132,15 @@ public class HostManager {
         }
     }
 
+    /*
+    For the given node connector IID, it returns the NodeConnector
+     */
 
     private NodeConnector getNodeConnectorFromII(
             InstanceIdentifier<NodeConnector> nodeConnectorId) {
+
         ListenableFuture<Optional<NodeConnector>> futureNodeConnector;
+
         try (ReadOnlyTransaction readTx = dataBroker.newReadOnlyTransaction()) {
             futureNodeConnector = readTx.read(LogicalDatastoreType.OPERATIONAL,
                     nodeConnectorId);
@@ -227,6 +156,10 @@ public class HostManager {
         }
         return null;
     }
+
+    /*
+    Returns Node for give Node IID
+     */
 
     private Node getNodeFromII(InstanceIdentifier<Node> nodeId) {
 
@@ -263,8 +196,11 @@ public class HostManager {
     public Node getIpNode(Ipv4Address ipv4Address) {
         Node node = null;
         if (ipv4Address_port_Map.containsKey(ipv4Address)) {
+
+
             InstanceIdentifier<NodeConnector> nodeConnectorId = ipv4Address_port_Map
                     .get(ipv4Address);
+
             InstanceIdentifier<Node> nodeId = nodeConnectorId
                     .firstIdentifierOf(Node.class);
             node = getNodeFromII(nodeId);
@@ -307,11 +243,6 @@ public class HostManager {
         }
         return ncRef;
     }
-
-    public HashMap<String, NodeConnectorRef> getControllerSwitchConnectors() {
-        return controllerswitchconnector;
-    }
-
 
     // Move these methods to Flow Writer class
     public static NodeConnectorRef getSourceNodeConnectorRef(Link link) {

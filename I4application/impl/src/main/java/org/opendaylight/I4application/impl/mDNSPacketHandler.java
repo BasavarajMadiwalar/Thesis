@@ -25,7 +25,6 @@ import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.flushpkt
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostAddedNotification;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostNotificationListener;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.hostmanagernotification.rev150105.HostRemovedNotification;
-import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.updatecoordinator.rev181201.UpdateCoordinatorService;
 import org.opendaylight.yangtools.yang.common.RpcResult;
 import org.opendaylight.yangtools.yang.common.RpcResultBuilder;
 import org.slf4j.Logger;
@@ -40,7 +39,7 @@ import java.util.concurrent.*;
 
 
 
-public class mDNSPacketHandler implements UdpPacketListener, HostNotificationListener, UpdateCoordinatorService, FlushPktRpcService {
+public class mDNSPacketHandler implements UdpPacketListener, HostNotificationListener, FlushPktRpcService {
 
     private final static Logger LOG = LoggerFactory.getLogger(org.opendaylight.I4application.impl.mDNSPacketHandler.class);
 
@@ -64,7 +63,6 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
                              FlowManager flowManager, PacketDispatcher packetDispatcher, RpcProviderRegistry rpcProviderRegistry) {
         this.notificationService = notificationService;
         notificationService.registerNotificationListener(this);
-        rpcProviderRegistry.addRpcImplementation(UpdateCoordinatorService.class, this);
         rpcProviderRegistry.addRpcImplementation(FlushPktRpcService.class, this);
         this.mDNS_packet_parser = mDNS_packet_parser;
         this.flowManager = flowManager;
@@ -142,7 +140,7 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
             /* Use executors and runnable to implements this. As Completable Future sometimes may block execution. */
 
 //            CompletableFuture.runAsync(()->SRVRecHandler(mDNSPacket, mDNSPayload), srvRecordExecutor);
-            CompletableFuture.runAsync(()->mDNS_packet_parser.mDNSRecordParser(mDNSPayload, protocol_pos, mDNSPacket.getSourceIpv4()), srvRecordExecutor);
+            CompletableFuture.runAsync(()->mDNS_packet_parser.mDNSSRVRecordParser(mDNSPayload, protocol_pos, mDNSPacket.getSourceIpv4()), srvRecordExecutor);
         }
 
 
@@ -211,10 +209,4 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
         return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
     }
 
-    @Override
-    public Future<RpcResult<Void>> updateCoordinatorList() {
-        LOG.debug("Updating coordinator map");
-        System.out.println("Updating coordinator list");
-        return Futures.immediateFuture(RpcResultBuilder.<Void>success().build());
-    }
 }

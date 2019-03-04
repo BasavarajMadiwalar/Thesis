@@ -38,6 +38,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.Future;
 
+
+
+
+
 public class UrlNotificationHandler implements UrlNotificationListener, HostNotificationListener, UpdateSkillsService {
 
     /**
@@ -207,7 +211,6 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
                     .build();
             notificationPublishService.offerNotification(notification);
         }
-
     }
 
     @Override

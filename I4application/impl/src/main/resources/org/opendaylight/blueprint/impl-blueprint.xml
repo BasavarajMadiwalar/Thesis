@@ -38,7 +38,7 @@ and is available at http://www.eclipse.org/legal/epl-v10.html
     <argument ref="notificationProvider"/>
   </bean> -->
 
-  <bean id="InitialFlowExecutor" class="org.opendaylight.I4application.impl.Topology.InitialFlowExecutor">
+  <bean id="InitialFlowExecutor" class="org.opendaylight.I4application.impl.flow.InitialFlowExecutor">
     <argument ref="notificationService"/>
     <argument ref="dataBroker"/>
     <argument ref="salFlowService"/>
