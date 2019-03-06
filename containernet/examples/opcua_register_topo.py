@@ -3,23 +3,23 @@
 This is the most simple example to showcase Containernet.
 """
 from mininet.net import Containernet
-from mininet.node import Controller
+from mininet.log import info, setLogLevel
+from mininet.util import pmonitor
 from mininet.cli import CLI
 from mininet.link import TCLink
-from mininet.log import info, setLogLevel
-from mininet.node import RemoteController
-from mininet.util import pmonitor
 from signal import SIGINT
 from time import time, sleep
 import os
 from shutil import  copyfile, copytree, rmtree
 import argparse
 import subprocess
-
+import pyshark
+import multiprocessing as mp
+import csv
 
 def create_network(switch_count):
     info("**** Setting up Network\n")
-    net = Containernet(controller=None)
+    net = Containernet(controller=None, link=TCLink)
     info("**** Adding Switches to \n")
     switch_list = []
     for switch_id in range(1, switch_count+1):
@@ -53,7 +53,7 @@ def create_network(switch_count):
     for switch in switch_list:
         opcua_list = switch_opcua_map['s'+str(switch_id)]
         for server in opcua_list:
-            net.addLink(server,switch)
+            link = net.addLink(server,switch, cls=TCLink, max_queue_size=5000, use_htb=True)
         net.addLink(switch, switch_coordinator_map['s'+str(switch_id)])
         switch_id+=1
 
@@ -69,7 +69,7 @@ def create_network(switch_count):
         host.cmd("./root/opcua/hostnamegen.sh %d" %device_id)
         sleep(0.25)
 
-    return net
+    return net, link
 
 def create_ip_mac_map(switch_count):
     info("**** Creating IP and MAC map\n")
@@ -115,20 +115,21 @@ def run_program(switch_count):
 
     for lds in ldsservers:
         popens1[lds] = lds.popen(['./root/opcua/ldsserver'], shell=False)
-        sleep(0.5)
-    sleep(3)
+        sleep(0.25)
+    sleep(1)
 
     lds_id = 1
     count = 0
     for opcua_server in opcua_servers:
-        popens2[opcua_server] =  opcua_server.popen(["/bin/bash", "-c", "./root/opcua/server_register opc.tcp://%s:4840" %(ip_map['d'+str(lds_id)])])
+        # popens2[opcua_server] =  opcua_server.popen(["/bin/bash", "-c", "./root/opcua/server_register opc.tcp://%s:4840" %(ip_map['d'+str(lds_id)])])
+        popens2[opcua_server] =  opcua_server.popen(["/bin/bash", "-c", "./root/opcua/server_register opc.tcp://%s:4840" %('d'+str(lds_id))])
         count+=1
         if count==3:
             lds_id+=1
             count=0
 
-    endtime1 = time()+30
-    endtime2 = time()+35
+    endtime1 = time()+40
+    endtime2 = time()+45
 
     for h, line in pmonitor(popens2, timeoutms=250):
         if h:
@@ -163,8 +164,12 @@ def config_flow(switch_count):
         subprocess.call(["sudo", 'ovs-ofctl', 'add-flow', 's%d'%switch_id, 'action=normal'])
 
     hosts = net.hosts
-    info("Testing Connectivity\n")
-    net.ping(hosts)
+    # info("Testing Connectivity\n")
+    # net.ping(hosts)
+
+    info('*** Testing connectivity\n')
+    for host_id in range(1, len(hosts)):
+        net.ping([hosts[0], hosts[host_id]])
 
 
 def copy_time_records(switch_count, topology_id):
@@ -188,6 +193,19 @@ def copy_time_records(switch_count, topology_id):
         device_id += 3
 
 
+def listen_packet(ifname):
+    info("**** Listening for packets\n")
+
+    cap = pyshark.LiveCapture(interface=str(ifname), bpf_filter='dst host 224.0.0.251')
+    cap.sniff(timeout=20)
+    li = [switch_count, len(cap)]
+    with open("PacketsDR.csv", 'a+') as file:
+        write = csv.writer(file, delimiter=',')
+        write.writerow(li)
+
+
+
+
 if __name__ == "__main__":
     setLogLevel('info')
     parser = argparse.ArgumentParser(description="Test Script to generate mininet topology")
@@ -202,30 +220,36 @@ if __name__ == "__main__":
     ip_map = {}
     mac_map = {}
     skill_list = ['Gripper', 'Conveyer', 'Sensor']
-    topo = ['2', '3', '4', '5', '6', '8', '7', '9', '10', '11', '12', '13', '14']
+    topo = [k for k in range(2, args.switches+1)]
 
     start_time = time()
-    iteration = 30
+    iteration = 10
 
-    for switch_count in range(2, args.switches+1, 2):
+    for switch_count in range(10, args.switches+1, 2):
         create_test_folders(switch_count)
         create_ip_mac_map(switch_count)
-        net = create_network(switch_count)
+        net, link = create_network(switch_count)
+        # net = create_network(switch_count)
         config_flow(switch_count)
 
+
         while iteration:
+            lp = mp.Process(target=listen_packet, args=(link.intf2, ))
+            lp.start()
             run_program(switch_count)
             sleep(5)
+            lp.join()
             logfile = open('Testlog', 'a+')
             logfile.write('Topology: %d and iteration: %d \n' % (switch_count, iteration))
             logfile.close()
             iteration-=1
 
         stop_net(net)
-        copy_time_records(switch_count, topo[switch_count-2])
+        copy_time_records(switch_count, str(topo[switch_count-2]))
         clean_folders()
-        iteration=30
+        iteration = 10
 
     duration = time() - start_time
+
 
     info("Time to complete Measurement is:" + str(duration))
