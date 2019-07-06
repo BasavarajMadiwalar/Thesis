@@ -19,16 +19,6 @@
         "Conveyer", 
         "Sensor"
     ], 
-    "ws:13": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
-    "ws:14": [
-        "Gripper", 
-        "Conveyer", 
-        "Sensor"
-    ], 
     "ws:2": [
         "Gripper", 
         "Conveyer", 

@@ -8,6 +8,7 @@
 
 package org.opendaylight.I4application.impl;
 
+import org.opendaylight.I4application.impl.utils.MDNSPacketsQueue;
 import org.opendaylight.controller.md.sal.binding.api.NotificationPublishService;
 import org.opendaylight.yang.gen.v1.urn.ietf.params.xml.ns.yang.ietf.inet.types.rev130715.Ipv4Address;
 import org.opendaylight.yang.gen.v1.urn.opendaylight.params.xml.ns.yang.urlnotification.rev150105.DiscoveryUrlNotification;
@@ -46,7 +47,7 @@ public class mDNS_packet_parser {
     public void mDNSSRVRecordParser(byte[] mDNSbinary, int PROTOCOL_POS, Ipv4Address src_address){
         LOG.debug("mDNS Record Parser");
 
-        if (urlRecord.containsKey(src_address)){
+        if (MDNSPacketsQueue.urlRecord.containsKey(src_address)){
             LOG.debug("URL already exists");
             return;
         }
@@ -68,7 +69,7 @@ public class mDNS_packet_parser {
         discovery_url = new String(targetarray, StandardCharsets.UTF_8) + ":" + port;
 
 
-        urlRecord.put(src_address, discovery_url);
+        MDNSPacketsQueue.urlRecord.put(src_address, discovery_url);
         DiscoveryUrlNotification discoveryUrlNotification = new DiscoveryUrlNotificationBuilder()
                 .setSrcIPAddress(src_address)
                 .setDiscoveryUrl(discovery_url)
@@ -87,8 +88,7 @@ public class mDNS_packet_parser {
         System.out.println("Published URL");
     }
 
-    public void clear_url_record(){
-        urlRecord.clear();
+    public void clear_url_record(Ipv4Address ipv4Address){
+        MDNSPacketsQueue.urlRecord.remove(ipv4Address);
     }
-
 }

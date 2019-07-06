@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 public class mDNSPacketForwarder implements I4applicationListener {
 
@@ -47,10 +48,13 @@ public class mDNSPacketForwarder implements I4applicationListener {
         Ipv4Address coordinator = notification.getCoOrdinatorAddress();
 
         sendcoordinatorpkts(opcua_server, coordinator);
-        flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
-        if (flowsetupResult){
-            sendOPCUAPkts(opcua_server, coordinator);
-        }
+        sendOPCUAPkts(opcua_server, coordinator);
+
+
+//        flowsetupResult=flowManager.mDNSPktFlowManager(opcua_server, coordinator);
+//        if (flowsetupResult){
+//            sendOPCUAPkts(opcua_server, coordinator);
+//        }
     }
 
 
@@ -61,13 +65,14 @@ public class mDNSPacketForwarder implements I4applicationListener {
         for (byte[] packet:packetList){
             boolean result = packetDispatcher.dispatchPacket(packet, opcuaServer, coordinator);
             if (result) packetcount--;
+            TimeUnit.SECONDS.toMicros(100);
         }
 
         if (packetcount != 0){
             LOG.debug("Packet out failed");
         }
         LOG.debug("mDNS Packet out success");
-        MDNSPacketsQueue.mDNSPackets.remove(opcuaServer);
+//        MDNSPacketsQueue.mDNSPackets.remove(opcuaServer);
     }
 
     private void sendcoordinatorpkts(Ipv4Address opcuaserver, Ipv4Address coordinator){
@@ -75,8 +80,8 @@ public class mDNSPacketForwarder implements I4applicationListener {
         ArrayList<byte[]> packetList = MDNSPacketsQueue.mDNSPackets.get(coordinator);
         for (byte[] packet:packetList){
             boolean result = packetDispatcher.dispatchPacket(packet, coordinator, opcuaserver);
+            TimeUnit.SECONDS.toMicros(100);
         }
-
     }
 
 }

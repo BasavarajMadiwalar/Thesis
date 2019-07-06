@@ -18,5 +18,6 @@ public class MDNSPacketsQueue {
 
     public static ConcurrentHashMap<Ipv4Address, ArrayList<byte[]>> mDNSPackets = new ConcurrentHashMap<>();
 
+    public static ConcurrentHashMap<Ipv4Address, String> urlRecord = new ConcurrentHashMap<>();
 
 }

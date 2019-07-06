@@ -205,6 +205,7 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
         String workstation = switch_workstation_map.get(switch_id);
         if (workstation_skillMap.get(workstation).contains(skill)){
             Ipv4Address coordinator_ip_addr = coordinator_ws_map.get(workstation);
+            System.out.println("Coordinator found\n");
             LOG.info("Coordinator for {} is {}", ipv4Address.getValue(), coordinator_ip_addr.getValue());
             CoOrdinatorIdentified notification =  new CoOrdinatorIdentifiedBuilder()
                     .setCoOrdinatorAddress(coordinator_ip_addr).setOpcuaServerAddress(ipv4Address)
@@ -228,6 +229,7 @@ public class UrlNotificationHandler implements UrlNotificationListener, HostNoti
             for (String workstation: coordinator_ws_map.keySet()){
                 if(coordinator_ws_map.get(workstation).equals(notification.getIPAddress())){
                     try {
+                        System.out.println("Removed Coordinator Entry\n");
                         coordinator_ws_map.remove(workstation);
                     } catch (Exception e){
                         e.printStackTrace();

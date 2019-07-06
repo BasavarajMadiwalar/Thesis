@@ -90,6 +90,12 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
             return;
         }
 
+        // New on 29-04-2019
+        if((MDNSPacketsQueue.urlRecord.containsKey(ipv4Packet.getSourceIpv4()))){
+            LOG.info("URL Record Exist");
+            return;
+        }
+
         try {
             queue.add(new ImmutablePair<>(ipv4Packet,data));
         }catch (Exception e){
@@ -142,31 +148,6 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
 //            CompletableFuture.runAsync(()->SRVRecHandler(mDNSPacket, mDNSPayload), srvRecordExecutor);
             CompletableFuture.runAsync(()->mDNS_packet_parser.mDNSSRVRecordParser(mDNSPayload, protocol_pos, mDNSPacket.getSourceIpv4()), srvRecordExecutor);
         }
-
-
-//        private void SRVRecHandler(Ipv4Packet mDNSPacket, byte[] mDNSPayload){
-//            LOG.debug("SRV Record Handler");
-//            String url = null;
-//            Ipv4Address srcIPaddr = mDNSPacket.getSourceIpv4();
-//
-//            // Check for
-//            CompletableFuture<String> future = CompletableFuture.supplyAsync(()->mDNS_packet_parser.mDNSRecordParser(mDNSPayload));
-//            try {
-//                url = future.get();
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            } catch (ExecutionException e) {
-//                e.printStackTrace();
-//            }
-//            if ((url.equals(null))|| urlRecord.containsKey(srcIPaddr)){
-//                LOG.debug("Not an SRV Record or Record already exist");
-//                return;
-//            }
-//            urlRecord.put(srcIPaddr, url);
-//            DiscoveryUrlNotification discoveryUrlNotification = new DiscoveryUrlNotificationBuilder()
-//                            .setSrcIPAddress(srcIPaddr).setDiscoveryUrl(url).build();
-//            notificationProvider.offerNotification(discoveryUrlNotification);
-//        }
     }
 
 
@@ -184,6 +165,7 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
                 LOG.debug("Remove mDNS packets for " + notification.getIPAddress());
                 System.out.println("Remove mDNS packets for " + notification.getIPAddress());
                 MDNSPacketsQueue.mDNSPackets.remove(notification.getIPAddress());
+                mDNS_packet_parser.clear_url_record(notification.getIPAddress());
             } else {
                 return;
             }
@@ -199,7 +181,6 @@ public class mDNSPacketHandler implements UdpPacketListener, HostNotificationLis
     private void flushpkts(){
         System.out.println("Removing Cached Packets");
         MDNSPacketsQueue.mDNSPackets.clear();
-        mDNS_packet_parser.clear_url_record();
     }
 
     @Override

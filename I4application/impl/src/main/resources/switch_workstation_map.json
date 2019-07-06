@@ -1,16 +1,7 @@
 {
-    "openflow:1": "ws:1", 
-    "openflow:10": "ws:10", 
-    "openflow:11": "ws:11", 
-    "openflow:12": "ws:12", 
-    "openflow:13": "ws:13", 
-    "openflow:14": "ws:14", 
-    "openflow:2": "ws:2", 
-    "openflow:3": "ws:3", 
-    "openflow:4": "ws:4", 
-    "openflow:5": "ws:5", 
-    "openflow:6": "ws:6", 
-    "openflow:7": "ws:7", 
-    "openflow:8": "ws:8", 
-    "openflow:9": "ws:9"
+    "openflow:90909320843846": "ws:1",
+    "openflow:165110167743814": "ws:2"
 }
+
+
+
